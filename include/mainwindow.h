@@ -28,6 +28,7 @@ private slots:
     void on_actionSetLineStyle_triggered();
     void on_actionSetColor_triggered();
     void on_actionSetWidth_triggered();
+    void on_actionOpenSTEP_triggered();
     
     // 鼠标事件处理槽
     void onMousePressed(const gp_Pnt &point);
@@ -57,6 +58,7 @@ private:
     QAction *m_actionSetLineStyle;
     QAction *m_actionSetColor;
     QAction *m_actionSetWidth;
+    QAction *m_actionOpenSTEP;
     
     // OCCT几何绘制器
     OCCTGeometry *m_occtGeometry;

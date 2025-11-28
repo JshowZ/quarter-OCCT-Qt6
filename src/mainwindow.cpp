@@ -7,6 +7,12 @@
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QDebug>
+#include <QFileDialog>
+
+// OCCT STEP读取相关头文件
+#include <STEPControl_Reader.hxx>
+#include <IFSelect_ReturnStatus.hxx>
+#include <TopExp_Explorer.hxx>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -49,6 +55,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(m_actionSetLineStyle, &QAction::triggered, this, &MainWindow::on_actionSetLineStyle_triggered);
     connect(m_actionSetColor, &QAction::triggered, this, &MainWindow::on_actionSetColor_triggered);
     connect(m_actionSetWidth, &QAction::triggered, this, &MainWindow::on_actionSetWidth_triggered);
+    connect(m_actionOpenSTEP, &QAction::triggered, this, &MainWindow::on_actionOpenSTEP_triggered);
 }
 
 MainWindow::~MainWindow()
@@ -106,6 +113,13 @@ void MainWindow::initUI()
     m_styleMenu->addAction(m_actionSetLineStyle);
     m_styleMenu->addAction(m_actionSetColor);
     m_styleMenu->addAction(m_actionSetWidth);
+    
+    // 创建文件菜单
+    QMenu *fileMenu = m_menuBar->addMenu("文件");
+    
+    // 创建打开STEP文件菜单项
+    m_actionOpenSTEP = new QAction("打开STEP文件", this);
+    fileMenu->addAction(m_actionOpenSTEP);
 }
 
 void MainWindow::on_actionPoint_triggered()
@@ -237,4 +251,65 @@ void MainWindow::updateShapes()
     
     // 渲染视图
     m_quarterViewer->render();
+}
+
+// 打开STEP文件槽函数
+void MainWindow::on_actionOpenSTEP_triggered()
+{
+    // 打开文件选择对话框
+    QString filePath = QFileDialog::getOpenFileName(
+        this, 
+        tr("打开STEP文件"), 
+        "", 
+        tr("STEP文件 (*.step *.stp)")
+    );
+    
+    if (filePath.isEmpty()) {
+        return; // 用户取消选择
+    }
+    
+    try {
+        // 使用OCCT读取STEP文件
+        STEPControl_Reader reader;
+        IFSelect_ReturnStatus status = reader.ReadFile(filePath.toStdString().c_str());
+        
+        if (status != IFSelect_RetDone) {
+            qDebug() << "Failed to read STEP file:" << filePath;
+            QMessageBox::warning(this, tr("错误"), tr("无法读取STEP文件"));
+            return;
+        }
+        
+        // 转换所有根形状
+        reader.TransferRoots();
+        
+        // 获取读取的形状数量
+        int shapeCount = reader.NbRootsForTransfer();
+        qDebug() << "Found" << shapeCount << "shapes in STEP file";
+        
+        // 清除当前所有形状
+        m_quarterViewer->clearAllShapes();
+        
+        // 遍历所有形状并添加到视图
+        for (int i = 1; i <= shapeCount; ++i) {
+            TopoDS_Shape shape = reader.Shape(i);
+            if (!shape.IsNull()) {
+                // 使用默认颜色和样式
+                Quantity_Color color(Quantity_NOC_BLUE);
+                m_quarterViewer->addShape(shape, color, 0, 1);
+                qDebug() << "Added shape" << i << "to scene";
+            }
+        }
+        
+        // 渲染视图
+        m_quarterViewer->render();
+        
+        QMessageBox::information(this, tr("成功"), tr("STEP文件读取成功"));
+        
+    } catch (const Standard_Failure &e) {
+        qDebug() << "OCCT exception when reading STEP file:" << e.GetMessageString();
+        QMessageBox::warning(this, tr("错误"), tr("读取STEP文件时发生OCCT异常"));
+    } catch (...) {
+        qDebug() << "Unknown exception when reading STEP file";
+        QMessageBox::warning(this, tr("错误"), tr("读取STEP文件时发生未知异常"));
+    }
 }
