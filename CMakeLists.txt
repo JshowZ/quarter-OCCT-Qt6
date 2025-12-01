@@ -1,28 +1,28 @@
 cmake_minimum_required(VERSION 3.16)
 project(geometrydrawer LANGUAGES CXX)
 
-# 设置C++标准
+# Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 查找Qt6依赖
-find_package(Qt6 COMPONENTS Core Gui Widgets OpenGLWidgets REQUIRED)
+# Find Qt6 dependencies
+find_package(Qt6 COMPONENTS Core Gui Widgets OpenGLWidgets Concurrent  REQUIRED)
 
-# 手动配置Coin3D、OCCT和Quarter的包含路径
-# 需要通过CMake命令行参数指定路径
+# Manually configure include paths for Coin3D, OCCT and Quarter
+# Paths need to be specified via CMake command line arguments
 set(COIN3D_INCLUDE_PATH "" CACHE PATH "Coin3D include directory")
 set(OCCT_INCLUDE_PATH "" CACHE PATH "OCCT include directory")
 set(QUARTER_INCLUDE_PATH "" CACHE PATH "Quarter include directory")
 
-# 手动配置库路径
+# Manually configure library paths
 set(COIN3D_LIB_PATH "" CACHE PATH "Coin3D library directory")
 set(OCCT_LIB_PATH "" CACHE PATH "OCCT library directory")
 set(QUARTER_LIB_PATH "" CACHE PATH "Quarter library directory")
 
-# 验证必要路径是否已设置
+# Verify necessary paths are set
 if("${COIN3D_INCLUDE_PATH}" STREQUAL "" OR "${OCCT_INCLUDE_PATH}" STREQUAL "" OR "${QUARTER_INCLUDE_PATH}" STREQUAL "" OR
    "${COIN3D_LIB_PATH}" STREQUAL "" OR "${OCCT_LIB_PATH}" STREQUAL "" OR "${QUARTER_LIB_PATH}" STREQUAL "")
-    message(FATAL_ERROR "请通过CMake命令行参数指定所有必要的依赖路径，例如：
+    message(FATAL_ERROR "Please specify all necessary dependency paths via CMake command line arguments, for example:
     cmake -DCOIN3D_INCLUDE_PATH=path/to/coin/include \
           -DOCCT_INCLUDE_PATH=path/to/occt/include \
           -DQUARTER_INCLUDE_PATH=path/to/quarter/include \
@@ -32,7 +32,7 @@ if("${COIN3D_INCLUDE_PATH}" STREQUAL "" OR "${OCCT_INCLUDE_PATH}" STREQUAL "" OR
           ..")
 endif()
 
-# 包含头文件目录
+# Include header directories
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${COIN3D_INCLUDE_PATH}
@@ -40,80 +40,140 @@ include_directories(
     ${QUARTER_INCLUDE_PATH}
 )
 
-# 链接库目录
+# Link library directories
 link_directories(
     ${COIN3D_LIB_PATH}
     ${OCCT_LIB_PATH}
     ${QUARTER_LIB_PATH}
 )
 
-# 收集源文件
+# Collect source files
 set(SOURCES
     src/main.cpp
     src/mainwindow.cpp
     src/geometrydrawer.cpp
     src/occtgeometry.cpp
     src/quarterviewer.cpp
+    src/AnotherMainWindow.cpp
+    src/OccWidget.cpp
+    src/STEPLoader.cpp
+    src/CurveExtractor.cpp
 )
 
-# 收集头文件
+# Collect header files
 set(HEADERS
     include/mainwindow.h
     include/geometrydrawer.h
     include/occtgeometry.h
     include/quarterviewer.h
+    include/AnotherMainWindow.h
+    include/OccWidget.h
+    include/STEPLoader.h
+    include/CurveExtractor.h
 )
 
-# 不再使用外部UI和资源文件，所有界面在代码中实现
+# No external UI and resource files used, all interfaces implemented in code
 
-# 添加可执行文件
+# Add executable
 add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${HEADERS}
 )
 
-# 启用Qt自动处理（moc、uic、rcc）
+# Enable Qt automatic processing (moc, uic, rcc)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     AUTOMOC ON
     AUTOUIC ON
     AUTORCC ON
 )
 
-# Qt6不再需要qt_use_modules，直接在target_link_libraries中指定
+# Qt6 no longer needs qt_use_modules, specify directly in target_link_libraries
 
-# 链接Coin3D库（使用正确的库名称）
+# Link Coin3D library (use correct library name)
 target_link_libraries(${PROJECT_NAME} Coin4)
 
-# 链接Quarter库
+# Link Quarter library
 target_link_libraries(${PROJECT_NAME} Quarter1)
 
-# 设置编译定义
+# Set compile definitions
 target_compile_definitions(${PROJECT_NAME} PRIVATE COIN_DLL QUARTER_DLL)
 
-# 链接OCCT库
+# Link OCCT libraries
 target_link_libraries(${PROJECT_NAME}
     TKBin TKBinL TKBinTObj TKBinXCAF TKBO TKBool TKBRep TKCAF TKCDF TKDCAF TKDE TKDECascade TKDEIGES TKDEOBJ TKDEPLY TKDESTEP TKDESTL TKDEVRML TKDraw TKernel TKExpress TKFeat TKFillet TKG2d TKG3d TKGeomAlgo TKGeomBase TKHelix TKHLR TKLCAF TKMath TKMesh TKMeshVS TKOffset TKOpenGl TKOpenGlTest TKPrim TKQADraw TKRWMesh TKService TKShHealing TKStd TKStdL TKTObj TKTObjDRAW TKTopAlgo TKTopTest TKV3d TKVCAF TKViewerTest TKXCAF TKXDEDRAW TKXMesh TKXml TKXmlL TKXmlTObj TKXmlXCAF TKXSBase TKXSDRAW TKXSDRAWDE TKXSDRAWIGES TKXSDRAWOBJ TKXSDRAWPLY TKXSDRAWSTEP TKXSDRAWSTL TKXSDRAWVRML
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGLWidgets
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGLWidgets Qt6::Concurrent
 )
 
-# 设置输出目录
+# Set output directory
 set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 )
 
-# 平台特定配置
+# Platform specific configuration
 if(WIN32)
-    # Windows特定设置
+    # Windows specific settings
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
 endif()
 
-# 安装配置
+# Installation configuration
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
-# 添加构建子目录
+# Add Step2Stl dynamic library
+# Collect Step2Stl source files
+set(STEP2STL_SOURCES
+    Step2Stl/src/Step2Stl.cpp
+)
+
+set(STEP2STL_HEADERS
+    Step2Stl/include/Step2Stl.h
+)
+
+# Create shared library target
+add_library(Step2Stl SHARED
+    ${STEP2STL_SOURCES}
+    ${STEP2STL_HEADERS}
+)
+
+# Set include directories for Step2Stl
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Step2Stl/include
+)
+
+# Set compile definitions for Step2Stl
+set_target_properties(Step2Stl PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    PREFIX ""
+    DEFINE_SYMBOL STEP2STL_EXPORTS
+)
+
+# Link OCCT libraries for Step2Stl
+# Use the same OCCT library names as the main application
+# Only link necessary OCCT libraries for STEP to STL conversion
+target_link_libraries(Step2Stl
+    TKernel TKMath TKG2d TKG3d TKGeomBase TKGeomAlgo TKBRep TKTopAlgo TKPrim TKBO TKShHealing TKHLR TKDESTEP TKDEIGES TKDEOBJ TKDESTL TKXSBase TKService TKMesh TKCDF TKOpenGl
+)
+
+# Set output directory for Step2Stl library
+set_target_properties(Step2Stl PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+)
+
+# Installation configuration for Step2Stl
+install(TARGETS Step2Stl
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+install(FILES ${STEP2STL_HEADERS} DESTINATION include/Step2Stl)
+
+# Add build subdirectory
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type (Debug or Release)" FORCE)
 endif()

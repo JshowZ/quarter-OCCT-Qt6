@@ -8,7 +8,7 @@
 #include <QPainterPath>
 #include <vector>
 
-// 几何图形类型枚举
+// Geometry type enumeration
 enum GeometryType {
     Point,
     Line,
@@ -24,34 +24,34 @@ class GeometryDrawer : public QObject
 public:
     explicit GeometryDrawer(QObject *parent = nullptr);
 
-    // 设置当前绘制类型
+    // Set current geometry type
     void setCurrentGeometryType(GeometryType type);
     
-    // 设置线型
+    // Set line style
     void setLineStyle(Qt::PenStyle style);
     
-    // 设置颜色
+    // Set line color
     void setLineColor(const QColor &color);
     
-    // 设置线宽
+    // Set line width
     void setLineWidth(int width);
     
-    // 开始绘制（鼠标按下）
+    // Start drawing (mouse press)
     void startDrawing(const QPointF &point);
     
-    // 继续绘制（鼠标移动）
+    // Continue drawing (mouse move)
     void continueDrawing(const QPointF &point);
     
-    // 结束绘制（鼠标释放）
+    // Finish drawing (mouse release)
     void finishDrawing(const QPointF &point);
     
-    // 获取当前所有图形数据
+    // Get all current geometry data
     const std::vector<QPainterPath> &getGeometries() const;
     const std::vector<QPen> &getGeometryPens() const;
     const std::vector<GeometryType> &getGeometryTypes() const;
 
 signals:
-    // 当需要更新视图时发出信号
+    // Signal emitted when view needs to be updated
     void geometryChanged();
 
 private:

@@ -9,6 +9,7 @@
 #include <GC_MakeCircle.hxx>
 #include <GC_MakeEllipse.hxx>
 #include <Geom_BSplineCurve.hxx>
+#include <Geom_Ellipse.hxx>
 #include <TColgp_Array1OfPnt.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
 
@@ -18,7 +19,7 @@ OCCTGeometry::OCCTGeometry(QObject *parent) : QObject(parent)
 {
     m_currentType = OCCT_Point;
     m_currentColor = Quantity_Color(Quantity_NOC_BLACK);
-    m_currentLineStyle = 0; // 实线
+    m_currentLineStyle = 0; // Solid line
     m_currentLineWidth = 2;
 }
 
@@ -66,27 +67,27 @@ void OCCTGeometry::startDrawing(const gp_Pnt &startPoint)
 
 void OCCTGeometry::continueDrawing(const gp_Pnt &point)
 {
-    // 对于曲线，持续收集点
+    // For curves, continuously collect points
     if (m_currentType == OCCT_Curve) {
-        // 添加新点到曲线点集合
+        // Add new point to curve point collection
         m_curvePoints.push_back(point);
         
-        // 实时预览（仅当有足够的点时）
+        // Real-time preview (only when there are enough points)
         if (m_curvePoints.size() > 1) {
-            // 计算与上一个点的距离，避免添加太近的点
+            // Calculate distance to previous point to avoid adding too close points
             const gp_Pnt &lastPoint = m_curvePoints[m_curvePoints.size() - 2];
             double distance = point.Distance(lastPoint);
             
-            // 距离阈值（可以根据需要调整）
+            // Distance threshold (can be adjusted as needed)
             const double distanceThreshold = 1.0;
             
-            // 只有当点距离足够远时才保留，避免点过于密集
+            // Only keep points when they are far enough apart to avoid dense points
             if (distance < distanceThreshold && m_curvePoints.size() > 2) {
-                m_curvePoints.pop_back(); // 移除太近的点
+                m_curvePoints.pop_back(); // Remove too close points
             } else {
                 qDebug() << "OCCTGeometry: Added point to curve, total points:" << m_curvePoints.size();
                 
-                // 触发geometryChanged信号，用于实时预览
+                // Trigger geometryChanged signal for real-time preview
                 emit geometryChanged();
             }
         }
@@ -97,7 +98,7 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 {
 	qDebug() << "OCCTGeometry: Finishing drawing at" << point.X() << "," << point.Y() << "," << point.Z();
 
-	// 根据当前几何类型创建相应的几何形状
+	// Create corresponding geometry shape according to current geometry type
 	TopoDS_Shape shape;
 
 	try {
@@ -107,27 +108,27 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 			break;
 		}
 		case OCCT_Line: {
-			// 确保起点和终点不重合
+			// Ensure start and end points are not coincident
 			if (m_startPoint.Distance(point) > 0.001) {
 				shape = createLine(m_startPoint, point);
 			}
 			else {
 				qDebug() << "OCCTGeometry: Line endpoints are too close, skipping";
-				return; // 如果太近则不创建线
+				return; // Don't create line if too close
 			}
 			break;
 		}
 		case OCCT_Curve: {
-			// 对于曲线，我们使用收集的所有点
+			// For curves, we use all collected points
 			if (m_curvePoints.empty()) {
 				m_curvePoints.push_back(m_startPoint);
 			}
 
-			// 使用收集的所有点创建曲线
+			// Create curve using all collected points
 			if (m_curvePoints.size() >= 1) {
 				m_curvePoints.push_back(point);
 				shape = createCurve(m_curvePoints);
-				m_curvePoints.clear(); // 绘制完成后清空点列表
+				m_curvePoints.clear(); // Clear point list after drawing
 			}
 			else {
 				qDebug() << "OCCTGeometry: Not enough points for curve, skipping";
@@ -137,7 +138,7 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 			break;
 		}
 		case OCCT_Rectangle: {
-			// 确保起点和终点不重合
+			// Ensure start and end points are not coincident
 			if (m_startPoint.Distance(point) > 0.001) {
 				shape = createRectangle(m_startPoint, point);
 			}
@@ -148,9 +149,9 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 			break;
 		}
 		case OCCT_Circle: {
-			// 计算半径（起点到终点的距离）
+			// Calculate radius (distance from start to end point)
 			double radius = m_startPoint.Distance(point);
-			if (radius > 0.001) { // 确保半径有效
+			if (radius > 0.001) { // Ensure radius is valid
 				shape = createCircle(m_startPoint, point);
 			}
 			else {
@@ -160,9 +161,9 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 			break;
 		}
 		case OCCT_Ellipse: {
-			// 确保起点和终点不重合
+			// Ensure start and end points are not coincident
 			if (m_startPoint.Distance(point) > 0.001) {
-				// 对于椭圆，第一个点是中心，第二个点决定长轴
+				// For ellipse, first point is center, second point determines major axis
 				shape = createEllipse(m_startPoint, point);
 			}
 			else {
@@ -177,9 +178,9 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 		}
 		}
 
-		// 如果成功创建了形状，添加到列表中
+		// If shape was successfully created, add to list
 		if (!shape.IsNull()) {
-			// 保存形状及其属性
+			// Save shape and its properties
 			m_shapes.push_back(shape);
 			m_colors.push_back(m_currentColor);
 			m_lineStyles.push_back(m_currentLineStyle);
@@ -188,7 +189,7 @@ void OCCTGeometry::finishDrawing(const gp_Pnt &point)
 
 			qDebug() << "OCCTGeometry: Shape added, total shapes:" << m_shapes.size();
 
-			// 发出信号通知视图更新
+			// Emit signal to notify view update
 			emit geometryChanged();
 		}
 		else {
@@ -263,9 +264,9 @@ QColor OCCTGeometry::occtToQtColor(const Quantity_Color &color)
 
 TopoDS_Shape OCCTGeometry::createPoint(const gp_Pnt &point)
 {
-    // 创建一个小立方体来表示点
+    // Create a small cube to represent a point
     Standard_Real size = m_currentLineWidth * 0.5;
-    // 使用两个对角点创建立方体，避免6参数构造函数不匹配问题
+    // Create cube using two diagonal points to avoid 6-parameter constructor mismatch
     gp_Pnt corner1(point.X() - size, point.Y() - size, point.Z() - size);
     gp_Pnt corner2(point.X() + size, point.Y() + size, point.Z() + size);
     BRepPrimAPI_MakeBox box(corner1, corner2);
@@ -299,11 +300,11 @@ TopoDS_Shape OCCTGeometry::createRectangle(const gp_Pnt &p1, const gp_Pnt &p2)
     Standard_Real maxX = std::max(p1.X(), p2.X());
     Standard_Real maxY = std::max(p1.Y(), p2.Y());
     
-    // 创建矩形的四个顶点
+    // Create four vertices of the rectangle
     gp_Pnt p3(minX, maxY, 0);
     gp_Pnt p4(maxX, minY, 0);
     
-    // 使用MakePolygon创建矩形
+    // Create rectangle using MakePolygon
     BRepBuilderAPI_MakePolygon polygon;
     polygon.Add(p1);
     polygon.Add(p3);
@@ -323,14 +324,14 @@ TopoDS_Shape OCCTGeometry::createCircle(const gp_Pnt &center, const gp_Pnt &edge
 
 TopoDS_Shape OCCTGeometry::createEllipse(const gp_Pnt &center, const gp_Pnt &point1)
 {
-    // 计算长轴和短轴长度（这里简化处理，使用固定比例）
+    // Calculate major and minor axis lengths (simplified, using fixed ratio)
     gp_Vec majorAxis = center.XYZ() - point1.XYZ();
     Standard_Real majorRadius = majorAxis.Magnitude();
     
-    // 短轴长度设为长轴的一半
+    // Set minor axis length to half of major axis
     Standard_Real minorRadius = majorRadius * 0.5;
     
-    // 创建椭圆
+    // Create ellipse
     GC_MakeEllipse ellipse(gp_Ax2(center, gp::DZ()), majorRadius, minorRadius);
     return BRepBuilderAPI_MakeEdge(ellipse.Value());
 }

@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <QWidget>
 #include <QtOpenGLWidgets/QOpenGLWidget>
 #include <Quarter/QuarterWidget.h>
@@ -28,36 +27,36 @@ public:
     explicit QuarterViewer(QWidget *parent = nullptr);
     ~QuarterViewer();
     
-    // 初始化视图
+    // Initialize the view
     void initialize();
     
-    // 添加OCCT形状到视图
+    // Add OCCT shape to the view
     void addShape(const TopoDS_Shape &shape, const Quantity_Color &color, int lineStyle, int lineWidth);
     
-    // 清除所有形状
+    // Clear all shapes
     void clearAllShapes();
     
-    // 渲染当前场景
+    // Render the current scene
     void render();
     
-    // 设置当前绘制模式（点、线等）
+    // Set current drawing mode (point, line, etc.)
     void setCurrentMode(int mode);
     
-    // 获取当前鼠标位置对应的3D点
+    // Get 3D point corresponding to current mouse position
     gp_Pnt getPointFromScreen(int x, int y);
     gp_Pnt getPointFromScreen(const QPoint &screenPos);
 
 signals:
-    // 鼠标事件信号
+    // Mouse event signals
     void mousePressed(const gp_Pnt &point);
     void mouseMoved(const gp_Pnt &point);
     void mouseReleased(const gp_Pnt &point);
     
-    // 视图更新信号
+    // View update signal
     void viewUpdated();
     
 protected:
-    // 鼠标事件处理
+    // Mouse event handling
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -70,8 +69,8 @@ private:
     V3d_View *m_view3d;
     Handle(AIS_InteractiveContext) m_context;
     int m_currentMode;
-    QPoint m_lastMousePos; // 保存上次鼠标位置
+    QPoint m_lastMousePos; // Save last mouse position
     
-    // 将OCCT形状转换为Coin3D节点
+    // Convert OCCT shape to Coin3D node
     SoNode *shapeToCoinNode(const TopoDS_Shape &shape, const Quantity_Color &color, int lineStyle, int lineWidth);
 };

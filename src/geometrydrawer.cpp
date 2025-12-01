@@ -66,7 +66,7 @@ void GeometryDrawer::finishDrawing(const QPointF &point)
         break;
     }
     
-    // 保存绘制的图形和笔设置
+    // Save drawn geometry and pen settings
     m_geometries.push_back(m_currentPath);
     m_geometryPens.push_back(m_currentPen);
     m_geometryTypes.push_back(m_currentType);

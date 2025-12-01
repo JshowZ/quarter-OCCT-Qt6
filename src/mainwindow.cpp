@@ -9,7 +9,7 @@
 #include <QDebug>
 #include <QFileDialog>
 
-// OCCT STEP读取相关头文件
+// OCCT STEP reading related headers
 #include <STEPControl_Reader.hxx>
 #include <IFSelect_ReturnStatus.hxx>
 #include <TopExp_Explorer.hxx>
@@ -19,33 +19,33 @@ MainWindow::MainWindow(QWidget *parent) :
     m_currentMode(OCCT_Point),
     m_isDrawing(false)
 {
-    // 设置窗口标题
-    this->setWindowTitle("几何图形绘制工具");
+    // Set window title
+    this->setWindowTitle("Geometry Drawing Tool");
     
-    // 初始化界面
+    // Initialize UI
     initUI();
     
-    // 创建并初始化OCCT几何绘制器
+    // Create and initialize OCCT geometry drawer
     m_occtGeometry = new OCCTGeometry(this);
     
-    // 创建并初始化QuarterViewer
+    // Create and initialize QuarterViewer
     m_quarterViewer = new QuarterViewer(this);
     //m_quarterViewer->initialize();
     
-    // 将QuarterViewer添加到主布局中
+    // Add QuarterViewer to main layout
     m_mainLayout->addWidget(m_quarterViewer);
     
-    // 连接信号和槽
+    // Connect signals and slots
     connect(m_quarterViewer, &QuarterViewer::mousePressed, this, &MainWindow::onMousePressed);
     connect(m_quarterViewer, &QuarterViewer::mouseMoved, this, &MainWindow::onMouseMoved);
     connect(m_quarterViewer, &QuarterViewer::mouseReleased, this, &MainWindow::onMouseReleased);
     connect(m_occtGeometry, &OCCTGeometry::geometryChanged, this, &MainWindow::updateShapes);
     
-    // 设置初始绘制模式
+    // Set initial drawing mode
     m_quarterViewer->setCurrentMode(m_currentMode);
     m_occtGeometry->setCurrentGeometryType(static_cast<OCCTGeometryType>(m_currentMode));
     
-    // 连接菜单项信号和槽
+    // Connect menu item signals and slots
     connect(m_actionPoint, &QAction::triggered, this, &MainWindow::on_actionPoint_triggered);
     connect(m_actionLine, &QAction::triggered, this, &MainWindow::on_actionLine_triggered);
     connect(m_actionCurve, &QAction::triggered, this, &MainWindow::on_actionCurve_triggered);
@@ -60,40 +60,40 @@ MainWindow::MainWindow(QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
-    // 清理界面控件
+    // Clean up UI widgets
     delete m_quarterViewer;
     delete m_occtGeometry;
     delete m_mainLayout;
     delete m_centralWidget;
-    // 菜单和动作由Qt自动管理，不需要手动删除
+    // Menus and actions are managed automatically by Qt, no need to delete manually
 }
 
-// 初始化UI界面
+// Initialize UI interface
 void MainWindow::initUI()
 {
-    // 创建中心部件和主布局
+    // Create central widget and main layout
     m_centralWidget = new QWidget(this);
     m_mainLayout = new QVBoxLayout(m_centralWidget);
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
     
-    // 设置中心部件
+    // Set central widget
     setCentralWidget(m_centralWidget);
     
-    // 创建菜单栏
+    // Create menu bar
     m_menuBar = menuBar();
     
-    // 创建几何图形菜单
-    m_geometryMenu = m_menuBar->addMenu("几何图形");
+    // Create geometry menu
+    m_geometryMenu = m_menuBar->addMenu("Geometry");
     
-    // 创建几何图形菜单项
-    m_actionPoint = new QAction("点", this);
-    m_actionLine = new QAction("直线", this);
-    m_actionCurve = new QAction("曲线", this);
-    m_actionRectangle = new QAction("矩形", this);
-    m_actionCircle = new QAction("圆形", this);
-    m_actionEllipse = new QAction("椭圆", this);
+    // Create geometry menu items
+    m_actionPoint = new QAction("Point", this);
+    m_actionLine = new QAction("Line", this);
+    m_actionCurve = new QAction("Curve", this);
+    m_actionRectangle = new QAction("Rectangle", this);
+    m_actionCircle = new QAction("Circle", this);
+    m_actionEllipse = new QAction("Ellipse", this);
     
-    // 添加几何图形菜单项
+    // Add geometry menu items
     m_geometryMenu->addAction(m_actionPoint);
     m_geometryMenu->addAction(m_actionLine);
     m_geometryMenu->addAction(m_actionCurve);
@@ -101,24 +101,24 @@ void MainWindow::initUI()
     m_geometryMenu->addAction(m_actionCircle);
     m_geometryMenu->addAction(m_actionEllipse);
     
-    // 创建样式设置菜单
-    m_styleMenu = m_menuBar->addMenu("样式设置");
+    // Create style menu
+    m_styleMenu = m_menuBar->addMenu("Style");
     
-    // 创建样式设置菜单项
-    m_actionSetLineStyle = new QAction("设置线型", this);
-    m_actionSetColor = new QAction("设置颜色", this);
-    m_actionSetWidth = new QAction("设置线宽", this);
+    // Create style menu items
+    m_actionSetLineStyle = new QAction("Set Line Style", this);
+    m_actionSetColor = new QAction("Set Color", this);
+    m_actionSetWidth = new QAction("Set Line Width", this);
     
-    // 添加样式设置菜单项
+    // Add style menu items
     m_styleMenu->addAction(m_actionSetLineStyle);
     m_styleMenu->addAction(m_actionSetColor);
     m_styleMenu->addAction(m_actionSetWidth);
     
-    // 创建文件菜单
-    QMenu *fileMenu = m_menuBar->addMenu("文件");
+    // Create file menu
+    QMenu *fileMenu = m_menuBar->addMenu("File");
     
-    // 创建打开STEP文件菜单项
-    m_actionOpenSTEP = new QAction("打开STEP文件", this);
+    // Create open STEP file menu item
+    m_actionOpenSTEP = new QAction("Open STEP File", this);
     fileMenu->addAction(m_actionOpenSTEP);
 }
 
@@ -172,9 +172,9 @@ void MainWindow::on_actionEllipse_triggered()
 
 void MainWindow::on_actionSetLineStyle_triggered()
 {
-    // 打开线型设置对话框
-    QStringList styles = {"实线", "虚线", "点线"};
-    QString style = QInputDialog::getItem(this, "设置线型", "选择线型:", styles, 0, false);
+    // Open line style dialog
+    QStringList styles = {"Solid", "Dashed", "Dotted"};
+    QString style = QInputDialog::getItem(this, "Set Line Style", "Select line style:", styles, 0, false);
     
     if (!style.isEmpty()) {
         int styleIndex = styles.indexOf(style);
@@ -185,8 +185,8 @@ void MainWindow::on_actionSetLineStyle_triggered()
 
 void MainWindow::on_actionSetColor_triggered()
 {
-    // 打开颜色选择对话框
-    QColor color = QColorDialog::getColor(Qt::black, this, "选择颜色");
+    // Open color selection dialog
+    QColor color = QColorDialog::getColor(Qt::black, this, "Select Color");
     
     if (color.isValid()) {
         m_occtGeometry->setLineColor(color);
@@ -196,9 +196,9 @@ void MainWindow::on_actionSetColor_triggered()
 
 void MainWindow::on_actionSetWidth_triggered()
 {
-    // 打开线宽设置对话框
+    // Open line width dialog
     bool ok;
-    int width = QInputDialog::getInt(this, "设置线宽", "线宽 (1-20):", 2, 1, 20, 1, &ok);
+    int width = QInputDialog::getInt(this, "Set Line Width", "Line width (1-20):", 2, 1, 20, 1, &ok);
     
     if (ok) {
         m_occtGeometry->setLineWidth(width);
@@ -206,7 +206,7 @@ void MainWindow::on_actionSetWidth_triggered()
     }
 }
 
-// 鼠标按下事件处理
+// Mouse press event handling
 void MainWindow::onMousePressed(const gp_Pnt &point)
 {
     m_isDrawing = true;
@@ -214,7 +214,7 @@ void MainWindow::onMousePressed(const gp_Pnt &point)
     qDebug() << "Mouse pressed at:" << point.X() << "," << point.Y() << "," << point.Z();
 }
 
-// 鼠标移动事件处理
+// Mouse move event handling
 void MainWindow::onMouseMoved(const gp_Pnt &point)
 {
     if (m_isDrawing && m_currentMode == OCCT_Curve) {
@@ -223,7 +223,7 @@ void MainWindow::onMouseMoved(const gp_Pnt &point)
     }
 }
 
-// 鼠标释放事件处理
+// Mouse release event handling
 void MainWindow::onMouseReleased(const gp_Pnt &point)
 {
     if (m_isDrawing) {
@@ -233,13 +233,13 @@ void MainWindow::onMouseReleased(const gp_Pnt &point)
     }
 }
 
-// 更新视图中的形状
+// Update shapes in view
 void MainWindow::updateShapes()
 {
-    // 清除当前所有形状
+    // Clear all current shapes
     m_quarterViewer->clearAllShapes();
     
-    // 添加所有新形状
+    // Add all new shapes
     const auto &shapes = m_occtGeometry->getShapes();
     const auto &colors = m_occtGeometry->getColors();
     const auto &lineStyles = m_occtGeometry->getLineStyles();
@@ -249,67 +249,67 @@ void MainWindow::updateShapes()
         m_quarterViewer->addShape(shapes[i], colors[i], lineStyles[i], lineWidths[i]);
     }
     
-    // 渲染视图
+    // Render view
     m_quarterViewer->render();
 }
 
-// 打开STEP文件槽函数
+// Open STEP file slot function
 void MainWindow::on_actionOpenSTEP_triggered()
 {
-    // 打开文件选择对话框
+    // Open file selection dialog
     QString filePath = QFileDialog::getOpenFileName(
         this, 
-        tr("打开STEP文件"), 
+        tr("Open STEP File"), 
         "", 
-        tr("STEP文件 (*.step *.stp)")
+        tr("STEP Files (*.step *.stp)")
     );
     
     if (filePath.isEmpty()) {
-        return; // 用户取消选择
+        return; // User canceled selection
     }
     
     try {
-        // 使用OCCT读取STEP文件
+        // Read STEP file using OCCT
         STEPControl_Reader reader;
         IFSelect_ReturnStatus status = reader.ReadFile(filePath.toStdString().c_str());
         
         if (status != IFSelect_RetDone) {
             qDebug() << "Failed to read STEP file:" << filePath;
-            QMessageBox::warning(this, tr("错误"), tr("无法读取STEP文件"));
+            QMessageBox::warning(this, tr("Error"), tr("Failed to read STEP file"));
             return;
         }
         
-        // 转换所有根形状
+        // Transfer all root shapes
         reader.TransferRoots();
         
-        // 获取读取的形状数量
+        // Get number of shapes read
         int shapeCount = reader.NbRootsForTransfer();
         qDebug() << "Found" << shapeCount << "shapes in STEP file";
         
-        // 清除当前所有形状
+        // Clear all current shapes
         m_quarterViewer->clearAllShapes();
         
-        // 遍历所有形状并添加到视图
+        // Iterate through all shapes and add to view
         for (int i = 1; i <= shapeCount; ++i) {
             TopoDS_Shape shape = reader.Shape(i);
             if (!shape.IsNull()) {
-                // 使用默认颜色和样式
+                // Use default color and style
                 Quantity_Color color(Quantity_NOC_BLUE);
                 m_quarterViewer->addShape(shape, color, 0, 1);
                 qDebug() << "Added shape" << i << "to scene";
             }
         }
         
-        // 渲染视图
+        // Render view
         m_quarterViewer->render();
         
-        QMessageBox::information(this, tr("成功"), tr("STEP文件读取成功"));
+        QMessageBox::information(this, tr("Success"), tr("STEP file read successfully"));
         
     } catch (const Standard_Failure &e) {
         qDebug() << "OCCT exception when reading STEP file:" << e.GetMessageString();
-        QMessageBox::warning(this, tr("错误"), tr("读取STEP文件时发生OCCT异常"));
+        QMessageBox::warning(this, tr("Error"), tr("OCCT exception occurred while reading STEP file"));
     } catch (...) {
         qDebug() << "Unknown exception when reading STEP file";
-        QMessageBox::warning(this, tr("错误"), tr("读取STEP文件时发生未知异常"));
+        QMessageBox::warning(this, tr("Error"), tr("Unknown exception occurred while reading STEP file"));
     }
 }

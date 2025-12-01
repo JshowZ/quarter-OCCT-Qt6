@@ -2,33 +2,34 @@
 #include <QSurfaceFormat>
 #include <QDebug>
 #include "mainwindow.h"
+#include "AnotherMainWindow.h"
 #include <Quarter/Quarter.h>
 #include <Inventor/nodes/SoBaseColor.h>
 #include <Inventor/nodes/SoCone.h>
 
 int main(int argc, char *argv[])
 {
-    // 设置OpenGL格式
+    // Set OpenGL format
     QSurfaceFormat format;
-    format.setVersion(4, 1); // 设置OpenGL版本
+    format.setVersion(4, 1); // Set OpenGL version
     format.setProfile(QSurfaceFormat::CoreProfile);
-    format.setSamples(4);    // 开启抗锯齿
+    format.setSamples(4);    // Enable anti-aliasing
     QSurfaceFormat::setDefaultFormat(format);
     
-    // 创建Qt应用程序实例
+    // Create Qt application instance
     QApplication a(argc, argv);
     
-    // 加载中文字体支持
+    // Load Chinese font support
     QFont font = a.font();
-    font.setFamily("SimHei"); // 使用黑体字体
+    font.setFamily("SimHei"); // Use SimHei font
     a.setFont(font);
     
     try {
-        // 创建并显示主窗口
-        MainWindow w;
+        // Create and show main window
+        AnotherMainWindow w;
         w.show();
         
-        // 进入应用程序的事件循环
+        // Enter application event loop
         return a.exec();
     } catch (const std::exception &e) {
         qDebug() << "Exception caught:" << e.what();

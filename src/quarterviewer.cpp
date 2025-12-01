@@ -12,7 +12,7 @@
 #include <Inventor/nodes/SoCone.h>
 #include <QMessageBox>
 
-// OCCT相关头文件
+// OCCT related headers
 #include <AIS_InteractiveContext.hxx>
 #include <V3d_Viewer.hxx>
 #include <V3d_View.hxx>
@@ -34,21 +34,21 @@
 
 QuarterViewer::QuarterViewer(QWidget *parent) : QWidget(parent)
 {
-    // 设置窗口属性，确保OpenGL正确渲染
+    // Set window attributes to ensure correct OpenGL rendering
     this->setAttribute(Qt::WA_PaintOnScreen);
     this->setAttribute(Qt::WA_OpaquePaintEvent);
     this->setAttribute(Qt::WA_NoSystemBackground);
     this->setFocusPolicy(Qt::StrongFocus);
     
-    // 创建布局
+    // Create layout
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     
-    // 初始化Quarter
+    // Initialize Quarter
     Quarter::init();
     
-    // 创建QuarterWidget，设置关键属性
+    // Create QuarterWidget and set key attributes
     m_quarterWidget = new QuarterWidget(this);
     m_quarterWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_quarterWidget->setFocusPolicy(Qt::StrongFocus);
@@ -58,7 +58,7 @@ QuarterViewer::QuarterViewer(QWidget *parent) : QWidget(parent)
     qDebug() << "QuarterViewer: Quarter initialized";
     qDebug() << "QuarterViewer: QuarterWidget created";
     
-    // 初始化其他成员
+    // Initialize other members
     m_rootNode = new SoSeparator();
     m_rootNode->ref();
     
@@ -72,28 +72,28 @@ QuarterViewer::QuarterViewer(QWidget *parent) : QWidget(parent)
     m_rootNode->addChild(new SoCone);
     //m_rootNode->addChild(m_shapesRoot);
     //
-    //// 创建相机
+    //// Create camera
     //SoPerspectiveCamera *camera = new SoPerspectiveCamera();
-    //camera->position.setValue(0, 0, 200); // 增加相机距离，扩大视野
+    //camera->position.setValue(0, 0, 200); // Increase camera distance, expand field of view
     //camera->orientation.setValue(0, 0, 0, 1);
-    //camera->heightAngle = M_PI / 3; // 增大视角，看到更多内容
+    //camera->heightAngle = M_PI / 3; // Increase viewing angle, see more content
     //camera->nearDistance = 1;
     //camera->farDistance = 1000;
     //m_rootNode->addChild(camera);
     //
-    //// 添加灯光
+    //// Add light
     //SoDirectionalLight *light = new SoDirectionalLight();
     //light->direction.setValue(-1, -1, -1);
     //light->intensity.setValue(0.8);
     //m_rootNode->addChild(light);
     //
-    //// 添加交互控件，允许用户旋转、缩放和平移视图
+    //// Add interaction controls, allow user to rotate, scale and pan view
     //SoTrackballManip *manipulator = new SoTrackballManip();
     //m_rootNode->addChild(manipulator);
     //
     //qDebug() << "QuarterViewer: Camera position:" << camera->position.getValue()[0] << "," << camera->position.getValue()[1] << "," << camera->position.getValue()[2];
     //
-    //// 设置场景图
+    //// Set scene graph
     //m_quarterWidget->setSceneGraph(m_rootNode);
     //
     //m_currentMode = 0;
@@ -109,66 +109,66 @@ QuarterViewer::~QuarterViewer()
 
 void QuarterViewer::initialize()
 {
-    //// 设置初始视图
+    //// Set initial view
     //m_quarterWidget->viewAll();
     //
-    //// 确保QuarterWidget正确显示
+    //// Ensure QuarterWidget displays correctly
     //this->setAttribute(Qt::WA_OpaquePaintEvent);
     //this->setAttribute(Qt::WA_PaintOnScreen);
     //
-    //// 简化背景设置，先移除可能导致问题的代码
+    //// Simplify background settings, remove code that might cause issues
     //
-    //// 添加明显的测试直线，增大线条宽度和颜色对比度
+    //// Add obvious test lines with increased line width and color contrast
     //qDebug() << "QuarterViewer: Initializing with test geometry";
     //
-    //// 添加测试直线，验证绘制功能
+    //// Add test lines to verify drawing functionality
     //SoSeparator *testSeparator = new SoSeparator();
     //
-    //// 设置材料 - 使用更鲜艳的颜色
+    //// Set material - use more vibrant color
     //SoMaterial *testMaterial = new SoMaterial();
-    //testMaterial->diffuseColor.setValue(1.0, 0.0, 0.0); // 鲜艳的红色
-    //testMaterial->emissiveColor.setValue(0.5, 0.0, 0.0); // 增加自发光，提高可见性
+    //testMaterial->diffuseColor.setValue(1.0, 0.0, 0.0); // Vibrant red
+    //testMaterial->emissiveColor.setValue(0.5, 0.0, 0.0); // Add self-emission to improve visibility
     //testSeparator->addChild(testMaterial);
     //
-    //// 设置绘制样式 - 增大线条宽度
+    //// Set draw style - increase line width
     //SoDrawStyle *testDrawStyle = new SoDrawStyle();
-    //testDrawStyle->lineWidth.setValue(5.0); // 更粗的线条
+    //testDrawStyle->lineWidth.setValue(5.0); // Thicker lines
     //testSeparator->addChild(testDrawStyle);
     //
-    //// 创建多条直线，形成一个十字，增加可见性
+    //// Create multiple lines to form a cross for better visibility
     //SoCoordinate3 *testCoords = new SoCoordinate3();
-    //// 水平线
-    //testCoords->point.set1Value(0, -100, 0, 0); // 左端点
-    //testCoords->point.set1Value(1, 100, 0, 0);  // 右端点
-    //// 垂直线
-    //testCoords->point.set1Value(2, 0, -100, 0); // 下端点
-    //testCoords->point.set1Value(3, 0, 100, 0);  // 上端点
+    //// Horizontal line
+    //testCoords->point.set1Value(0, -100, 0, 0); // Left endpoint
+    //testCoords->point.set1Value(1, 100, 0, 0);  // Right endpoint
+    //// Vertical line
+    //testCoords->point.set1Value(2, 0, -100, 0); // Bottom endpoint
+    //testCoords->point.set1Value(3, 0, 100, 0);  // Top endpoint
     //testSeparator->addChild(testCoords);
     //
-    //// 创建线条集
+    //// Create line set
     //SoLineSet *testLineSet = new SoLineSet();
-    //// 指定每条线的顶点数
-    //int numVertices[] = {2, 2}; // 两条线，每条2个顶点
+    //// Specify number of vertices per line
+    //int numVertices[] = {2, 2}; // Two lines, each with 2 vertices
     //testLineSet->numVertices.setValues(0, 2, numVertices);
     //testSeparator->addChild(testLineSet);
     //
-    //// 确保测试图形位于场景的中心和可见区域
+    //// Ensure test geometry is centered and visible in the scene
     //SoTransform *transform = new SoTransform();
     //transform->translation.setValue(0, 0, 0);
     //transform->scaleFactor.setValue(1, 1, 1);
     //testSeparator->insertChild(transform, 0);
     //
-    //// 清除之前可能存在的形状，确保只显示测试图形
+    //// Clear any existing shapes to ensure only test geometry is displayed
     //m_shapesRoot->removeAllChildren();
     //
-    //// 添加到场景
+    //// Add to scene
     //m_shapesRoot->addChild(testSeparator);
     //
-    //// 添加额外的调试信息
+    //// Add additional debug information
     //qDebug() << "QuarterViewer: Test cross added to scene with lines: horizontal from (-100,0,0) to (100,0,0) and vertical from (0,-100,0) to (0,100,0)";
-    //qDebug() << "QuarterViewer: Camera position:" << m_rootNode->getChild(3)->getTypeId().getName(); // 检查相机节点
+    //qDebug() << "QuarterViewer: Camera position:" << m_rootNode->getChild(3)->getTypeId().getName(); // Check camera node
     //
-    //// 强制更新视图
+    //// Force view update
     //m_quarterWidget->update();
     //this->update();
     qDebug() << "QuarterViewer: View updated after adding test geometry";
@@ -177,16 +177,16 @@ void QuarterViewer::initialize()
 void QuarterViewer::addShape(const TopoDS_Shape &shape, const Quantity_Color &color, int lineStyle, int lineWidth)
 {
     try {
-        // 检查形状是否有效
+        // Check if shape is valid
         if (shape.IsNull()) {
             qDebug() << "QuarterViewer: Attempting to add null shape, skipping";
             return;
         }
         
-        // 将OCCT形状转换为Coin3D节点
+        // Convert OCCT shape to Coin3D node
         SoNode *node = shapeToCoinNode(shape, color, lineStyle, lineWidth);
         
-        // 如果转换成功，添加到根节点
+        // If conversion successful, add to root node
         if (node) {
             m_shapesRoot->addChild(node);
             qDebug() << "QuarterViewer: Shape added to scene graph";
@@ -212,7 +212,7 @@ void QuarterViewer::clearAllShapes()
 
 void QuarterViewer::render()
 {
-    // QuarterWidget没有updateGL方法，使用update()替代
+    // QuarterWidget doesn't have updateGL method, use update() instead
     m_quarterWidget->update();
 }
 
@@ -223,20 +223,20 @@ void QuarterViewer::setCurrentMode(int mode)
 
 gp_Pnt QuarterViewer::getPointFromScreen(const QPoint &screenPos)
 {
-    // 计算屏幕坐标对应的3D点
-    // 这里使用简化的实现，实际项目中可能需要更复杂的射线投射
+    // Calculate the 3D point corresponding to the screen coordinates
+    // This uses a simplified implementation, actual projects may need more complex ray casting
     
-    // 获取视口大小
+    // Get viewport size
     QSize viewportSize = m_quarterWidget->size();
     
-    // 归一化坐标到[-1, 1]范围
+    // Normalize coordinates to [-1, 1] range
     Standard_Real normalizedX = (2.0 * screenPos.x() / viewportSize.width()) - 1.0;
     Standard_Real normalizedY = 1.0 - (2.0 * screenPos.y() / viewportSize.height());
     
-    // 假设一个简单的正交投影
-    // 在实际应用中，应该使用相机的投影矩阵和视图矩阵
-    Standard_Real scale = 1.0; // 缩放因子
-    Standard_Real z = 0.0;     // 固定Z坐标
+    // Assume a simple orthogonal projection
+    // In actual applications, should use camera's projection matrix and view matrix
+    Standard_Real scale = 1.0; // Scale factor
+    Standard_Real z = 0.0;     // Fixed Z coordinate
     
     gp_Pnt result(normalizedX * scale * 50.0, normalizedY * scale * 50.0, z);
     return result;
@@ -249,20 +249,20 @@ gp_Pnt QuarterViewer::getPointFromScreen(int x, int y)
 
 void QuarterViewer::mousePressEvent(QMouseEvent *event)
 {
-    // 计算3D点并发出信号
+    // Calculate 3D point and emit signal
     gp_Pnt point = getPointFromScreen(event->x(), event->y());
     emit mousePressed(point);
     
-    // 保存当前按下的鼠标位置
+    // Save current mouse position
     m_lastMousePos = event->pos();
     
     qDebug() << "QuarterViewer: Mouse pressed at screen position" << event->pos() << ", 3D point" << point.X() << point.Y() << point.Z();
     
-    // 调用基类的事件处理
+    // Call base class event handling
     QWidget::mousePressEvent(event);
     
-    // QuarterWidget的processSoEvent需要SoEvent类型，这里注释掉不兼容的调用
-    // 直接使用Qt的事件系统和QuarterWidget的update()方法来更新视图
+    // QuarterWidget's processSoEvent requires SoEvent type, comment out incompatible call
+    // Directly use Qt's event system and QuarterWidget's update() method to update view
     // if (m_quarterWidget) {
     //     m_quarterWidget->processSoEvent(event);
     // }
@@ -270,17 +270,17 @@ void QuarterViewer::mousePressEvent(QMouseEvent *event)
 
 void QuarterViewer::mouseMoveEvent(QMouseEvent *event)
 {
-    // 计算3D点并发出信号
+    // Calculate 3D point and emit signal
     gp_Pnt point = getPointFromScreen(event->x(), event->y());
     emit mouseMoved(point);
     
     qDebug() << "QuarterViewer: Mouse moved at screen position" << event->pos() << ", 3D point" << point.X() << point.Y() << point.Z();
     
-    // 调用基类的事件处理
+    // Call base class event handling
     QWidget::mouseMoveEvent(event);
     
-    // QuarterWidget的processSoEvent需要SoEvent类型，这里注释掉不兼容的调用
-    // 直接使用Qt的事件系统和QuarterWidget的update()方法来更新视图
+    // QuarterWidget's processSoEvent requires SoEvent type, comment out incompatible call
+    // Directly use Qt's event system and QuarterWidget's update() method to update view
     // if (m_quarterWidget) {
     //     m_quarterWidget->processSoEvent(event);
     // }
@@ -289,17 +289,17 @@ void QuarterViewer::mouseMoveEvent(QMouseEvent *event)
 
 void QuarterViewer::mouseReleaseEvent(QMouseEvent *event)
 {
-    // 计算3D点并发出信号
+    // Calculate 3D point and emit signal
     gp_Pnt point = getPointFromScreen(event->x(), event->y());
     emit mouseReleased(point);
     
     qDebug() << "QuarterViewer: Mouse released at screen position" << event->pos() << ", 3D point" << point.X() << point.Y() << point.Z();
     
-    // 调用基类的事件处理
+    // Call base class event handling
     QWidget::mouseReleaseEvent(event);
     
-    // QuarterWidget的processSoEvent需要SoEvent类型，这里注释掉不兼容的调用
-    // 直接使用Qt的事件系统和QuarterWidget的update()方法来更新视图
+    // QuarterWidget's processSoEvent requires SoEvent type, comment out incompatible call
+    // Directly use Qt's event system and QuarterWidget's update() method to update view
     // if (m_quarterWidget) {
     //     m_quarterWidget->processSoEvent(event);
     // }
@@ -311,29 +311,29 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
     SoSeparator *separator = new SoSeparator();
     separator->setName("ShapeNode");
     
-    // 设置材料属性
+    // Set material properties
     SoMaterial *material = new SoMaterial();
     Standard_Real r, g, b;
     r = color.Red();
     g = color.Green();
     b = color.Blue();
     material->diffuseColor.setValue(r, g, b);
-    material->emissiveColor.setValue(r * 0.2, g * 0.2, b * 0.2); // 添加一些自发光效果
+    material->emissiveColor.setValue(r * 0.2, g * 0.2, b * 0.2); // Add some self-emission effect
     separator->addChild(material);
     
-    // 设置绘制样式
+    // Set draw style
     SoDrawStyle *drawStyle = new SoDrawStyle();
     drawStyle->lineWidth.setValue(lineWidth);
     
-    // 根据线型设置不同的线条模式
+    // Set different line patterns according to line style
     switch (lineStyle) {
-    case 0: // 实线
+    case 0: // Solid line
         drawStyle->linePattern.setValue(0xffff);
         break;
-    case 1: // 虚线
+    case 1: // Dashed line
         drawStyle->linePattern.setValue(0xf0f0);
         break;
-    case 2: // 点线
+    case 2: // Dotted line
         drawStyle->linePattern.setValue(0x8888);
         break;
     default:
@@ -342,7 +342,7 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
     
     separator->addChild(drawStyle);
     
-    // 根据形状类型创建不同的几何节点
+    // Create different geometry nodes according to shape type
     try {
         if (shape.IsNull()) {
             return nullptr;
@@ -353,14 +353,14 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
         int pointIndex = 0;
         std::vector<int> numVertices;
         
-        // 统一处理：遍历形状中的所有边
+        // Unified processing: iterate through all edges in the shape
         TopExp_Explorer edgeExplorer(shape, TopAbs_EDGE);
         
         while (edgeExplorer.More()) {
             TopoDS_Edge edge = TopoDS::Edge(edgeExplorer.Current());
             
             if (!edge.IsNull() && BRep_Tool::IsGeometric(edge)) {
-                // 获取边的两个端点
+                // Get two endpoints of the edge
                 gp_Pnt start, end;
                 TopExp_Explorer vertexExp(edge, TopAbs_VERTEX);
                 
@@ -370,10 +370,10 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
                     if (vertexExp.More()) {
                         end = BRep_Tool::Pnt(TopoDS::Vertex(vertexExp.Current()));
                         
-                        // 添加边的两个端点
+                        // Add two endpoints of the edge
                         coords->point.set1Value(pointIndex++, start.X(), start.Y(), start.Z());
                         coords->point.set1Value(pointIndex++, end.X(), end.Y(), end.Z());
-                        numVertices.push_back(2); // 每条边有2个顶点
+                        numVertices.push_back(2); // Each edge has 2 vertices
                     }
                 }
             }
@@ -381,25 +381,25 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
             edgeExplorer.Next();
         }
         
-        // 如果没有边，尝试直接获取顶点（处理点类型）
+        // If no edges, try to get vertices directly (handle point type)
         if (numVertices.empty()) {
             TopExp_Explorer vertexExp(shape, TopAbs_VERTEX);
             if (vertexExp.More()) {
                 gp_Pnt p = BRep_Tool::Pnt(TopoDS::Vertex(vertexExp.Current()));
                 
-                // 创建一个十字线来表示点
+                // Create a cross to represent the point
                 Standard_Real size = lineWidth * 2.0;
                 coords->point.set1Value(pointIndex++, p.X() - size, p.Y(), p.Z());
                 coords->point.set1Value(pointIndex++, p.X() + size, p.Y(), p.Z());
-                numVertices.push_back(2); // 水平线
+                numVertices.push_back(2); // Horizontal line
                 
                 coords->point.set1Value(pointIndex++, p.X(), p.Y() - size, p.Z());
                 coords->point.set1Value(pointIndex++, p.X(), p.Y() + size, p.Z());
-                numVertices.push_back(2); // 垂直线
+                numVertices.push_back(2); // Vertical line
             }
         }
         
-        // 如果有顶点数据，添加到场景中
+        // If there are vertex data, add to scene
         if (!numVertices.empty()) {
             lineSet->numVertices.setValues(0, numVertices.size(), numVertices.data());
             separator->addChild(coords);
@@ -408,7 +408,7 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
         }
         else {
             qDebug() << "QuarterViewer: No vertices found in shape";
-            // 至少添加一个可见的点，避免空节点
+            // At least add a visible point to avoid empty node
             coords->point.set1Value(0, 0, 0, 0);
             SoPointSet *pointSet = new SoPointSet();
             separator->addChild(coords);
@@ -416,7 +416,7 @@ SoNode *QuarterViewer::shapeToCoinNode(const TopoDS_Shape &shape, const Quantity
         }
     } catch (const Standard_Failure &e) {
         qDebug() << "QuarterViewer: OCCT exception in shapeToCoinNode:" << e.GetMessageString();
-        // 添加一个可见的错误标记
+        // Add a visible error marker
         SoCoordinate3 *coords = new SoCoordinate3();
         coords->point.set1Value(0, 0, 0, 0);
         SoPointSet *pointSet = new SoPointSet();

@@ -30,25 +30,26 @@ private slots:
     void on_actionSetWidth_triggered();
     void on_actionOpenSTEP_triggered();
     
-    // 鼠标事件处理槽
+    // Mouse event handling slots
     void onMousePressed(const gp_Pnt &point);
     void onMouseMoved(const gp_Pnt &point);
     void onMouseReleased(const gp_Pnt &point);
     
-    // 视图更新槽
+    // View update slot
     void updateShapes();
 
 private:
-    // 主布局
+    // Main layout
     QVBoxLayout *m_mainLayout;
     QWidget *m_centralWidget;
     
-    // 菜单栏相关
+    // Menu bar related
     QMenuBar *m_menuBar;
     QMenu *m_geometryMenu;
     QMenu *m_styleMenu;
+    QMenu *m_fileMenu;
     
-    // 菜单项
+    // Menu items
     QAction *m_actionPoint;
     QAction *m_actionLine;
     QAction *m_actionCurve;
@@ -60,19 +61,19 @@ private:
     QAction *m_actionSetWidth;
     QAction *m_actionOpenSTEP;
     
-    // OCCT几何绘制器
+    // OCCT geometry drawer
     OCCTGeometry *m_occtGeometry;
     
     // QuarterViewer
     QuarterViewer *m_quarterViewer;
     
-    // 当前绘制模式
+    // Current drawing mode
     int m_currentMode;
     
-    // 绘制状态标志
+    // Drawing status flag
     bool m_isDrawing;
     
-    // 初始化UI
+    // Initialize UI
     void initUI();
 };
 
