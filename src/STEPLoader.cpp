@@ -1,4 +1,3 @@
-﻿#include "STEPLoader.h"
 #include "STEPLoader.h"
 #include <IFSelect_ReturnStatus.hxx>
 #include <TopoDS_Shape.hxx>
@@ -22,14 +21,25 @@ bool STEPLoader::loadSTEPFile(const QString& filePath)
         return false;
     }
 
-	// transfer roots to shapes
+    Standard_Boolean failsonly = Standard_False;
+    m_reader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity);
+
+    int nbRootsForTransfer =  m_reader.NbRootsForTransfer();
+    QString statusMessage = QString("Read file done, %1 roots for transfer").arg(nbRootsForTransfer);
+
+    // Set transfer mode to include all entity types (solids, curves, lines, etc.)
+    //m_reader.SetTransferMode(STEPControl_AsIs);
+    
+    // transfer roots to shapes
     bool transferOk = m_reader.TransferRoots();
+    m_reader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity);
+
     if (!transferOk) {
         emit fileLoaded(false, "success");
         return false;
     }
 
-	// get number of shapes
+    // get number of shapes
     int nbShapes = m_reader.NbShapes();
     int shapesLoaded = 0;
 

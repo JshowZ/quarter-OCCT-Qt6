@@ -29,6 +29,7 @@ private slots:
     void zoomAll();
     void onFileLoaded(bool success, const QString& message);
     void exportSTLFile();
+    void loadStepWithStatistics();
 
 private:
     void setupUI();
@@ -50,4 +51,5 @@ private:
     QAction* m_openAction;
     QAction* m_zoomAllAction;
     QAction* m_exportSTLAction;
+	QAction* m_loadStepAction;
 };

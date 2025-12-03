@@ -72,7 +72,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     AUTOMOC ON
     AUTOUIC ON
     AUTORCC ON
-    WIN32_EXECUTABLE TRUE
+    WIN32_EXECUTABLE $<NOT:$<BOOL:${ENABLE_CONSOLE_OUTPUT}>>
 )
 
 # Set include directories for the main application
@@ -94,6 +94,7 @@ target_link_directories(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     COIN_DLL
     QUARTER_DLL
+    $<$<BOOL:${ENABLE_CONSOLE_OUTPUT}>:ENABLE_CONSOLE_OUTPUT>
 )
 
 # Define OCCT libraries
@@ -200,6 +201,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Option to build Step2Stl library
 option(BUILD_STEP2STL_LIBRARY "Build Step2Stl dynamic library" ON)
 
+# Option to enable console output
+option(ENABLE_CONSOLE_OUTPUT "Enable console output for the application" OFF)
+
 if(BUILD_STEP2STL_LIBRARY)
     # Collect Step2Stl source files
     file(GLOB_RECURSE STEP2STL_SOURCES "Step2Stl/src/*.cpp")
@@ -274,5 +278,6 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Output Directory: ${OUTPUT_DIR}")
 message(STATUS "Build Step2Stl Library: ${BUILD_STEP2STL_LIBRARY}")
+message(STATUS "Enable Console Output: ${ENABLE_CONSOLE_OUTPUT}")
 message(STATUS "")
 
