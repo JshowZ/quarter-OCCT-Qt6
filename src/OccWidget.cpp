@@ -1,5 +1,4 @@
-#include "OccWidget.h"
-#include "OccWidget.h"
+ï»¿#include "OccWidget.h"
 #include <AIS_Shape.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
@@ -44,7 +43,6 @@ void OccWidget::resizeGL(int width, int height)
 
 void OccWidget::initOCC()
 {
-    // ´´½¨Í¼ÐÎÇý¶¯
     static Handle(Aspect_DisplayConnection) displayConnection;
     if (displayConnection.IsNull()) {
         displayConnection = new Aspect_DisplayConnection();
@@ -55,13 +53,11 @@ void OccWidget::initOCC()
         graphicDriver = new OpenGl_GraphicDriver(displayConnection);
     }
 
-    // ´´½¨²é¿´Æ÷
     m_viewer = new V3d_Viewer(graphicDriver);
     m_viewer->SetDefaultLights();
     m_viewer->SetLightOn();
     m_viewer->SetDefaultBackgroundColor(Quantity_NOC_WHITE);
 
-    // ´´½¨ÊÓÍ¼
     m_view = m_viewer->CreateView();
     Handle(WNT_Window) wntWindow = new WNT_Window((Aspect_Handle)winId());
     m_view->SetWindow(wntWindow);
@@ -70,7 +66,6 @@ void OccWidget::initOCC()
         wntWindow->Map();
     }
 
-    // ´´½¨½»»¥ÉÏÏÂÎÄ
     m_context = new AIS_InteractiveContext(m_viewer);
     m_context->SetDisplayMode(AIS_Shaded, true);
 

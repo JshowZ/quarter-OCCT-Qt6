@@ -1,8 +1,9 @@
-﻿#include "AnotherMainWindow.h"
+#include "AnotherMainWindow.h"
 #include "OccWidget.h"
 #include "STEPLoader.h"
 
 #include <QtConcurrent>
+#include <QThreadPool>
 
 // OCCT STL export headers
 #include <StlAPI_Writer.hxx>
@@ -94,13 +95,21 @@ void AnotherMainWindow::openSTEPFile()
         m_infoLabel->setText("loading STEPfile...");
 
 		// SINGLE THREAD BLOCKING LOAD
-        QtConcurrent::run([this, filePath]() {
+        /*QtConcurrent::run([this, filePath]() {
             bool success = m_stepLoader->loadSTEPFile(filePath);
             QString message = success ? "load success" : "load failed";
             QMetaObject::invokeMethod(this, [this, success, message]() {
                 onFileLoaded(success, message);
                 }, Qt::QueuedConnection);
-            });
+            });*/
+
+        Q_UNUSED(QtConcurrent::run([this, filePath]() {
+            bool success = m_stepLoader->loadSTEPFile(filePath);
+            QString message = success ? "load success" : "load failed";
+            QMetaObject::invokeMethod(this, [this, success, message]() {
+                onFileLoaded(success, message);
+                }, Qt::QueuedConnection);
+            }));
     }
 }
 
@@ -151,7 +160,7 @@ void AnotherMainWindow::exportSTLFile()
         m_infoLabel->setText("Exporting STL file...");
         
         // Export in a separate thread to avoid UI blocking
-        QtConcurrent::run([this, filePath, shapes]() {
+        QThreadPool::globalInstance()->start([this, filePath, shapes]() {
             bool success = true;
             QString message = "Export successful";
             
