@@ -13,7 +13,7 @@ public:
     OcctUtil();
     ~OcctUtil();
 
-    // 按实体和壳进行分离
+    // Separate by solids and shells
     static void SeparateBySolidsAndShells(const TopoDS_Shape& model, TopoDS_Compound& meshableParts, TopoDS_Compound& nonMeshableParts, double deflection = 0.01);
 
 };

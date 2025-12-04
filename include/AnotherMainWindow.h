@@ -30,6 +30,7 @@ private slots:
     void onFileLoaded(bool success, const QString& message);
     void exportSTLFile();
     void loadStepWithStatistics();
+    void performMeshAbilityAnalysis();
 
 private:
     void setupUI();
@@ -52,4 +53,5 @@ private:
     QAction* m_zoomAllAction;
     QAction* m_exportSTLAction;
 	QAction* m_loadStepAction;
+	QAction* m_meshAbilityAnalysisAction;
 };
