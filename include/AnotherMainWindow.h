@@ -16,8 +16,7 @@
 class OccWidget;
 class STEPLoader;
 
-class AnotherMainWindow : public QMainWindow
-{
+class AnotherMainWindow : public QMainWindow{
     Q_OBJECT
 
 public:
@@ -31,6 +30,8 @@ private slots:
     void exportSTLFile();
     void loadStepWithStatistics();
     void performMeshAbilityAnalysis();
+    void performCurveAnalysis();
+    void performShapeStatistics();
 
 private:
     void setupUI();
@@ -49,9 +50,12 @@ private:
     QMenuBar* m_menuBar;
     QMenu* m_fileMenu;
     QMenu* m_viewMenu;
+    QMenu* m_analysisMenu;
     QAction* m_openAction;
     QAction* m_zoomAllAction;
     QAction* m_exportSTLAction;
 	QAction* m_loadStepAction;
 	QAction* m_meshAbilityAnalysisAction;
+    QAction* m_curveAnalysisAction;
+    QAction* m_shapeStatisticsAction;
 };

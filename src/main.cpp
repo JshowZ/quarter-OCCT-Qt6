@@ -9,13 +9,6 @@
 
 int main(int argc, char *argv[])
 {
-    // Set OpenGL format
-    QSurfaceFormat format;
-    format.setVersion(4, 1); // Set OpenGL version
-    format.setProfile(QSurfaceFormat::CoreProfile);
-    format.setSamples(4);    // Enable anti-aliasing
-    QSurfaceFormat::setDefaultFormat(format);
-    
     // Create Qt application instance
     QApplication a(argc, argv);
     
