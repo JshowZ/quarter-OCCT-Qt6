@@ -11,6 +11,8 @@
 #include <TopoDS_Solid.hxx>
 #include <TopoDS_CompSolid.hxx>
 #include <TopoDS_Compound.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepTools.hxx>
 
 // Standard Includes
 #include <iostream>
@@ -51,6 +53,16 @@ void ShapeStatistics::reset()
     compoundCount_ = 0;
     totalCount_ = 0;
     mostComplexType_ = TopAbs_VERTEX;
+    
+    // 清空存储的形状列表
+    extractedEdges_.Clear();
+    extractedVertices_.Clear();
+    extractedWires_.Clear();
+    extractedFaces_.Clear();
+    extractedShells_.Clear();
+    extractedSolids_.Clear();
+    extractedCompSolids_.Clear();
+    extractedCompounds_.Clear();
 }
 
 int ShapeStatistics::getVertexCount() const
@@ -158,6 +170,36 @@ void ShapeStatistics::processShapeRecursive(const TopoDS_Shape& shape)
     TopAbs_ShapeEnum shapeType = shape.ShapeType();
     updateCount(shapeType);
     
+    // 存储当前形状到对应的列表
+    switch (shapeType) {
+    case TopAbs_VERTEX:
+        extractedVertices_.Append(shape);
+        break;
+    case TopAbs_EDGE:
+        extractedEdges_.Append(shape);
+        break;
+    case TopAbs_WIRE:
+        extractedWires_.Append(shape);
+        break;
+    case TopAbs_FACE:
+        extractedFaces_.Append(shape);
+        break;
+    case TopAbs_SHELL:
+        extractedShells_.Append(shape);
+        break;
+    case TopAbs_SOLID:
+        extractedSolids_.Append(shape);
+        break;
+    case TopAbs_COMPSOLID:
+        extractedCompSolids_.Append(shape);
+        break;
+    case TopAbs_COMPOUND:
+        extractedCompounds_.Append(shape);
+        break;
+    default:
+        break;
+    }
+    
     // 更新最复杂形状类型
     if (shapeType > mostComplexType_) {
         mostComplexType_ = shapeType;
@@ -234,4 +276,99 @@ void ShapeStatistics::updateCount(TopAbs_ShapeEnum shapeType)
     }
     
     totalCount_++;
+}
+
+const TopTools_ListOfShape& ShapeStatistics::getExtractedEdges() const
+{
+    return extractedEdges_;
+}
+
+void ShapeStatistics::getShapesOfType(TopAbs_ShapeEnum shapeType, TopTools_ListOfShape& shapes) const
+{
+    shapes.Clear();
+    
+    switch (shapeType) {
+    case TopAbs_VERTEX:
+        shapes = extractedVertices_;
+        break;
+    case TopAbs_EDGE:
+        shapes = extractedEdges_;
+        break;
+    case TopAbs_WIRE:
+        shapes = extractedWires_;
+        break;
+    case TopAbs_FACE:
+        shapes = extractedFaces_;
+        break;
+    case TopAbs_SHELL:
+        shapes = extractedShells_;
+        break;
+    case TopAbs_SOLID:
+        shapes = extractedSolids_;
+        break;
+    case TopAbs_COMPSOLID:
+        shapes = extractedCompSolids_;
+        break;
+    case TopAbs_COMPOUND:
+        shapes = extractedCompounds_;
+        break;
+    default:
+        break;
+    }
+}
+
+bool ShapeStatistics::saveEdgesToBREP(const std::string& filePath) const
+{
+    // 检查是否有提取到的边
+    if (extractedEdges_.IsEmpty()) {
+        return false;
+    }
+    
+    try {
+        // 创建复合形状
+        TopoDS_Compound compound;
+        BRep_Builder builder;
+        builder.MakeCompound(compound);
+        
+        // 将所有边添加到复合形状中
+        for (TopTools_ListIteratorOfListOfShape it(extractedEdges_); it.More(); it.Next()) {
+            const TopoDS_Shape& edge = it.Value();
+            builder.Add(compound, edge);
+        }
+        
+        // 保存到BREP文件
+        return BRepTools::Write(compound, filePath.c_str());
+    } catch (...) {
+        return false;
+    }
+}
+
+bool ShapeStatistics::saveShapesToBREP(TopAbs_ShapeEnum shapeType, const std::string& filePath) const
+{
+    // 获取特定类型的形状
+    TopTools_ListOfShape shapes;
+    getShapesOfType(shapeType, shapes);
+    
+    // 检查是否有提取到的形状
+    if (shapes.IsEmpty()) {
+        return false;
+    }
+    
+    try {
+        // 创建复合形状
+        TopoDS_Compound compound;
+        BRep_Builder builder;
+        builder.MakeCompound(compound);
+        
+        // 将所有形状添加到复合形状中
+        for (TopTools_ListIteratorOfListOfShape it(shapes); it.More(); it.Next()) {
+            const TopoDS_Shape& shape = it.Value();
+            builder.Add(compound, shape);
+        }
+        
+        // 保存到BREP文件
+        return BRepTools::Write(compound, filePath.c_str());
+    } catch (...) {
+        return false;
+    }
 }

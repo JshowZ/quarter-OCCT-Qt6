@@ -8,139 +8,94 @@
 #include <AIS_InteractiveContext.hxx>
 
 #include <QMouseEvent>
-#include <QShowEvent>
-#include <QResizeEvent>
 
 OccWidget::OccWidget(QWidget* parent)
-    : QWidget(parent)
-    , m_isInitialized(false)
+    : QOpenGLWidget(parent)
     , m_isRotating(false)
     , m_isPanning(false)
 {
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
-    setAttribute(Qt::WA_PaintOnScreen, true);
-    setAttribute(Qt::WA_NoSystemBackground, true);
-    setAttribute(Qt::WA_OpaquePaintEvent, true);
 }
 
 OccWidget::~OccWidget()
 {
-    if (!m_wntWindow.IsNull() && m_wntWindow->IsMapped()) {
-        m_wntWindow->Unmap();
-    }
 }
 
-void OccWidget::showEvent(QShowEvent* event)
+void OccWidget::initializeGL()
 {
-    QWidget::showEvent(event);
-    
-    if (!m_isInitialized) {
-        initOCC();
-        m_isInitialized = true;
-    }
-    
-    updateView();
+    initOCC();
 }
 
-void OccWidget::resizeEvent(QResizeEvent* event)
-{
-    QWidget::resizeEvent(event);
-    
-    if (m_isInitialized) {
-        if (!m_view.IsNull()) {
-            // 确保OCCT视图知道窗口大小已经变化
-            m_view->MustBeResized();
-            
-            // 强制重绘
-            m_view->Invalidate();
-            m_view->Redraw();
-        }
-    }
-}
-
-void OccWidget::paintEvent(QPaintEvent* event)
-{
-    QWidget::paintEvent(event);
-    
-    if (m_isInitialized && !m_view.IsNull()) {
-        // 在paintEvent中直接调用Redraw，确保模型始终可见
-        m_view->Redraw();
-    }
-}
-
-void OccWidget::initOCC()
-{
-    try {
-        static Handle(Aspect_DisplayConnection) displayConnection;
-        if (displayConnection.IsNull()) {
-            displayConnection = new Aspect_DisplayConnection();
-        }
-
-        static Handle(Graphic3d_GraphicDriver) graphicDriver;
-        if (graphicDriver.IsNull()) {
-            graphicDriver = new OpenGl_GraphicDriver(displayConnection);
-        }
-
-        m_viewer = new V3d_Viewer(graphicDriver);
-        m_viewer->SetDefaultLights();
-        m_viewer->SetLightOn();
-        m_viewer->SetDefaultBackgroundColor(Quantity_NOC_WHITE);
-
-        m_view = m_viewer->CreateView();
-        m_wntWindow = new WNT_Window((Aspect_Handle)winId());
-        m_view->SetWindow(m_wntWindow);
-
-        if (!m_wntWindow->IsMapped()) {
-            m_wntWindow->Map();
-        }
-
-        m_context = new AIS_InteractiveContext(m_viewer);
-        m_context->SetDisplayMode(AIS_Shaded, true);
-
-        m_view->SetBackgroundColor(Quantity_NOC_WHITE);
-        m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_RED, 0.1, V3d_ZBUFFER);
-        
-        updateView();
-    }
-    catch (const Standard_Failure& e) {
-        // Handle OCCT exceptions
-    }
-    catch (...) {
-        // Handle other exceptions
-    }
-}
-
-void OccWidget::updateView()
+void OccWidget::paintGL()
 {
     if (!m_view.IsNull()) {
         m_view->Redraw();
     }
 }
 
+void OccWidget::resizeGL(int width, int height)
+{
+    if (!m_view.IsNull()) {
+        m_view->MustBeResized();
+    }
+}
+
+void OccWidget::initOCC()
+{
+    static Handle(Aspect_DisplayConnection) displayConnection;
+    if (displayConnection.IsNull()) {
+        displayConnection = new Aspect_DisplayConnection();
+    }
+
+    static Handle(Graphic3d_GraphicDriver) graphicDriver;
+    if (graphicDriver.IsNull()) {
+        graphicDriver = new OpenGl_GraphicDriver(displayConnection);
+    }
+
+    m_viewer = new V3d_Viewer(graphicDriver);
+    m_viewer->SetDefaultLights();
+    m_viewer->SetLightOn();
+    m_viewer->SetDefaultBackgroundColor(Quantity_NOC_WHITE);
+
+    m_view = m_viewer->CreateView();
+    Handle(WNT_Window) wntWindow = new WNT_Window((Aspect_Handle)winId());
+    m_view->SetWindow(wntWindow);
+
+    if (!wntWindow->IsMapped()) {
+        wntWindow->Map();
+    }
+
+    m_context = new AIS_InteractiveContext(m_viewer);
+    m_context->SetDisplayMode(AIS_Shaded, true);
+
+    m_view->SetBackgroundColor(Quantity_NOC_WHITE);
+    m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_RED, 0.1, V3d_ZBUFFER);
+}
+
 void OccWidget::displayShape(const TopoDS_Shape& shape)
 {
-    if (m_isInitialized && !m_context.IsNull() && !shape.IsNull()) {
+    if (!m_context.IsNull() && !shape.IsNull()) {
         Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
         m_context->Display(aisShape, false);
-        updateView();
+        update();
     }
 }
 
 void OccWidget::fitAll()
 {
-    if (m_isInitialized && !m_view.IsNull()) {
+    if (!m_view.IsNull()) {
         m_view->FitAll();
         m_view->ZFitAll();
-        updateView();
+        update();
     }
 }
 
 void OccWidget::eraseAll()
 {
-    if (m_isInitialized && !m_context.IsNull()) {
+    if (!m_context.IsNull()) {
         m_context->RemoveAll(false);
-        updateView();
+        update();
     }
 }
 
@@ -167,32 +122,31 @@ void OccWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void OccWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_isInitialized && !m_view.IsNull()) {
+    if (!m_view.IsNull()) {
         QPoint currentPos = event->pos();
         int dx = currentPos.x() - m_lastMousePos.x();
         int dy = currentPos.y() - m_lastMousePos.y();
 
         if (m_isRotating) {
             m_view->Rotation(currentPos.x(), currentPos.y());
-            updateView();
         }
         else if (m_isPanning) {
             m_view->Pan(dx, -dy);
-            updateView();
         }
 
         m_lastMousePos = currentPos;
+        update();
     }
 }
 
 void OccWidget::wheelEvent(QWheelEvent* event)
 {
-    if (m_isInitialized && !m_view.IsNull()) {
+    if (!m_view.IsNull()) {
         double zoomFactor = 1.1;
         if (event->angleDelta().y() < 0) {
             zoomFactor = 1.0 / zoomFactor;
         }
         m_view->SetZoom(zoomFactor);
-        updateView();
+        update();
     }
 }

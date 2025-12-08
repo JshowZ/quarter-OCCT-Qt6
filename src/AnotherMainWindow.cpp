@@ -4,6 +4,11 @@
 #include "MeshabilitySeparator.h"
 #include "CurveExtractor.h"
 #include "ShapeStatistics.h"
+#include "MeshRemover.h"
+#include "STLExportDiagnoser.h"
+#include "STLMultiLevelExporter.h"
+#include "CompoundCurveExtractor.h"
+#include "TopologyExplorer.h"
 
 #include <QtConcurrent>
 #include <QThreadPool>
@@ -31,6 +36,7 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <Geom_OffsetCurve.hxx>
 #include <BRepTools.hxx>
+#include <BRep_Builder.hxx>
 
 AnotherMainWindow::AnotherMainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -52,6 +58,12 @@ AnotherMainWindow::AnotherMainWindow(QWidget* parent)
     , m_meshAbilityAnalysisAction(nullptr)
     , m_curveAnalysisAction(nullptr)
     , m_shapeStatisticsAction(nullptr)
+    , m_saveEdgesToBREPAction(nullptr)
+    , m_meshRemovalAction(nullptr)
+    , m_stlExportDiagnosisAction(nullptr)
+    , m_stlMultiLevelExportAction(nullptr)
+    , m_compoundCurveExtractAction(nullptr)
+    , m_topologyExplorationAction(nullptr)
 {
     setupUI();
     setupConnections();
@@ -117,6 +129,26 @@ void AnotherMainWindow::setupUI()
     m_curveAnalysisAction->setShortcut(tr("Ctrl+K"));
     m_shapeStatisticsAction = m_analysisMenu->addAction("Shape Statistics");
     m_shapeStatisticsAction->setShortcut(tr("Ctrl+S"));
+    m_saveEdgesToBREPAction = m_analysisMenu->addAction("Save Edges to BREP");
+    m_saveEdgesToBREPAction->setShortcut(tr("Ctrl+B"));
+    m_meshRemovalAction = m_analysisMenu->addAction("Remove Meshable Parts");
+    m_meshRemovalAction->setShortcut(tr("Ctrl+M"));
+    
+    // Add STL Export Diagnosis action
+    m_stlExportDiagnosisAction = m_analysisMenu->addAction("STL Export Diagnosis");
+    m_stlExportDiagnosisAction->setShortcut(tr("Ctrl+D"));
+    
+    // Add STL Multi-Level Export action
+    m_stlMultiLevelExportAction = m_analysisMenu->addAction("STL Multi-Level Export");
+    m_stlMultiLevelExportAction->setShortcut(tr("Ctrl+X"));
+    
+    // Add Compound Curve Extractor action
+    m_compoundCurveExtractAction = m_analysisMenu->addAction("Extract Compound Curves");
+    m_compoundCurveExtractAction->setShortcut(tr("Ctrl+U"));
+    
+    // Add Topology Exploration action
+    m_topologyExplorationAction = m_analysisMenu->addAction("Topology Exploration");
+    m_topologyExplorationAction->setShortcut(tr("Ctrl+T"));
 
     m_occWidget = new OccWidget(this);
     m_mainLayout->addWidget(m_occWidget);
@@ -135,6 +167,12 @@ void AnotherMainWindow::setupConnections()
     connect(m_zoomAllAction, &QAction::triggered, this, &AnotherMainWindow::zoomAll);
     connect(m_curveAnalysisAction, &QAction::triggered, this, &AnotherMainWindow::performCurveAnalysis);
     connect(m_shapeStatisticsAction, &QAction::triggered, this, &AnotherMainWindow::performShapeStatistics);
+    connect(m_saveEdgesToBREPAction, &QAction::triggered, this, &AnotherMainWindow::saveEdgesToBREPFile);
+    connect(m_meshRemovalAction, &QAction::triggered, this, &AnotherMainWindow::performMeshRemoval);
+    connect(m_stlExportDiagnosisAction, &QAction::triggered, this, &AnotherMainWindow::performSTLExportDiagnosis);
+    connect(m_stlMultiLevelExportAction, &QAction::triggered, this, &AnotherMainWindow::performSTLMultiLevelExport);
+    connect(m_compoundCurveExtractAction, &QAction::triggered, this, &AnotherMainWindow::extractCompoundCurves);
+    connect(m_topologyExplorationAction, &QAction::triggered, this, &AnotherMainWindow::performTopologyExploration);
     connect(m_stepLoader, &STEPLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
 }
 
@@ -382,6 +420,407 @@ void AnotherMainWindow::performMeshAbilityAnalysis()
             m_infoLabel->setText("Meshability analysis completed");
             QMessageBox::information(this, "Meshability Analysis", 
                 "Meshability analysis completed. Check the console output and generated files for detailed results.");
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::performSTLExportDiagnosis()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "STL Export Diagnosis", "No shapes loaded to analyze. Please open a STEP file first.");
+        return;
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Performing STL export diagnosis...");
+
+    // Perform diagnosis in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes]() {
+        // Create STLExportDiagnoser
+        STLExportDiagnoser diagnoser;
+        diagnoser.setDeflection(0.01);
+        
+        // Diagnose all shapes
+        std::vector<MeshDiagnosis> allDiagnoses;
+        for (const auto& shape : shapes) {
+            std::vector<MeshDiagnosis> shapeDiagnoses = diagnoser.diagnoseShape(shape);
+            allDiagnoses.insert(allDiagnoses.end(), shapeDiagnoses.begin(), shapeDiagnoses.end());
+        }
+        
+        // Generate detailed report
+        std::string report = diagnoser.generateReport(allDiagnoses);
+        
+        // Get exportable and non-exportable shapes
+        std::vector<TopoDS_Shape> exportableShapes = diagnoser.getExportableShapes(allDiagnoses);
+        std::vector<TopoDS_Shape> nonExportableShapes = diagnoser.getNonExportableShapes(allDiagnoses);
+        
+        // Save report to file
+        std::ofstream reportFile("stl_export_diagnosis_report.txt");
+        if (reportFile.is_open()) {
+            reportFile << report;
+            reportFile.close();
+        }
+        
+        // Export exportable shapes to STL if any
+        bool exportSuccess = false;
+        if (!exportableShapes.empty()) {
+            exportSuccess = diagnoser.exportToSTL(exportableShapes, "exportable_shapes.stl");
+        }
+        
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, allDiagnoses, exportableShapes, nonExportableShapes, exportSuccess]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText("STL export diagnosis completed");
+            
+            // Display results in message box
+            QString statsMessage = QString(
+                "STL Export Diagnosis Results:\n"
+                "Total entities: %1\n"
+                "Exportable entities: %2\n"
+                "Non-exportable entities: %3\n"
+                "Exportable faces: %4\n"
+                "Triangulated faces: %5\n"
+                "\nExportable shapes %6 to exportable_shapes.stl"
+            );
+            
+            // Calculate total faces and triangulated faces
+            int totalFaces = 0;
+            int totalTriangulatedFaces = 0;
+            for (const auto& diag : allDiagnoses) {
+                totalFaces += diag.faceCount;
+                totalTriangulatedFaces += diag.triangulatedFaceCount;
+            }
+            
+            statsMessage = statsMessage
+                .arg(allDiagnoses.size())
+                .arg(exportableShapes.size())
+                .arg(nonExportableShapes.size())
+                .arg(totalFaces)
+                .arg(totalTriangulatedFaces)
+                .arg(exportSuccess ? "successfully exported" : "failed to export");
+            
+            QMessageBox::information(this, "STL Export Diagnosis", statsMessage);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::performSTLMultiLevelExport()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "STL Multi-Level Export", "No shapes loaded to export. Please open a STEP file first.");
+        return;
+    }
+
+    // Open file dialog to choose save location
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save STL File",
+        "",
+        "STL Files (*.stl)"
+    );
+    
+    if (filePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Performing STL multi-level export...");
+
+    // Perform export in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, filePath]() {
+        bool exportSuccess = false;
+        std::string exportMessage;
+        
+        try {
+            // Create STLMultiLevelExporter
+            STLMultiLevelExporter exporter;
+            exporter.setDeflection(0.01);
+            
+            // Combine all shapes into a single compound shape for export
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Perform multi-level export
+            exportSuccess = exporter.exportToSTL(combinedShape, filePath.toStdString());
+            
+            // Generate report
+            std::string report = exporter.generateReport();
+            
+            // Save report to file
+            std::string reportFilePath = filePath.toStdString() + "_export_report.txt";
+            std::ofstream reportFile(reportFilePath);
+            if (reportFile.is_open()) {
+                reportFile << report;
+                reportFile.close();
+            }
+            
+            exportMessage = exportSuccess ? "STL export completed successfully." : "STL export failed.";
+            exportMessage += "\nReport saved to: " + reportFilePath;
+            
+        } catch (const Standard_Failure& e) {
+            exportSuccess = false;
+            exportMessage = "STL export failed: " + std::string(e.GetMessageString());
+        } catch (const std::exception& e) {
+            exportSuccess = false;
+            exportMessage = "STL export failed: " + std::string(e.what());
+        } catch (...) {
+            exportSuccess = false;
+            exportMessage = "STL export failed: Unknown error.";
+        }
+        
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, exportSuccess, exportMessage, filePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(exportSuccess ? "STL multi-level export completed" : "STL multi-level export failed");
+            
+            if (exportSuccess) {
+                QMessageBox::information(this, "STL Multi-Level Export", 
+                    QString::fromStdString(exportMessage) + "\n\nFile saved to: " + filePath);
+            } else {
+                QMessageBox::critical(this, "STL Multi-Level Export", 
+                    QString::fromStdString(exportMessage));
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::extractCompoundCurves()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Extract Compound Curves", "No shapes loaded to extract curves from. Please open a STEP file first.");
+        return;
+    }
+
+    // Open file dialog to choose save location
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save Curves to BREP",
+        "",
+        "BREP Files (*.brep)"
+    );
+    
+    if (filePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Extracting curves from compound shapes...");
+
+    // Perform extraction in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, filePath]() {
+        bool extractionSuccess = false;
+        std::string extractionMessage;
+        int curveCount = 0;
+        
+        try {
+            // Create CompoundCurveExtractor
+            CompoundCurveExtractor extractor;
+            
+            // Combine all shapes into a single compound shape for extraction
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Extract curves from compound shapes
+            extractionSuccess = extractor.extractCurvesFromCompound(combinedShape);
+            curveCount = extractor.getCurveCount();
+            
+            if (extractionSuccess && curveCount > 0) {
+                // Save curves to BREP file
+                if (extractor.saveCurvesToBREP(filePath.toStdString())) {
+                    extractionMessage = "Successfully extracted " + std::to_string(curveCount) + " curves from compound shapes.";
+                } else {
+                    extractionSuccess = false;
+                    extractionMessage = "Failed to save extracted curves to BREP file.";
+                }
+            } else {
+                extractionSuccess = false;
+                extractionMessage = "No curves could be extracted from the compound shapes.";
+            }
+            
+        } catch (const Standard_Failure& e) {
+            extractionSuccess = false;
+            extractionMessage = "Curve extraction failed: " + std::string(e.GetMessageString());
+        } catch (const std::exception& e) {
+            extractionSuccess = false;
+            extractionMessage = "Curve extraction failed: " + std::string(e.what());
+        } catch (...) {
+            extractionSuccess = false;
+            extractionMessage = "Curve extraction failed: Unknown error.";
+        }
+        
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, extractionSuccess, extractionMessage, curveCount, filePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(extractionSuccess ? "Curve extraction completed" : "Curve extraction failed");
+            
+            if (extractionSuccess) {
+                QMessageBox::information(this, "Extract Compound Curves", 
+                    QString::fromStdString(extractionMessage) + "\n\nFile saved to: " + filePath);
+            } else {
+                QMessageBox::critical(this, "Extract Compound Curves", 
+                    QString::fromStdString(extractionMessage));
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::performTopologyExploration()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Topology Exploration", "No shapes loaded to explore. Please open a STEP file first.");
+        return;
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Performing topology exploration...");
+
+    // Perform exploration in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes]() {
+        std::string explorationMessage;
+        std::string topologyStats;
+        std::string curveStats;
+        int uniqueCurvesCount = 0;
+        int topologyCount = 0;
+        
+        try {
+            // Create TopologyExplorer
+            TopologyExplorer explorer;
+            
+            // Combine all shapes into a single compound shape for exploration
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Perform topology exploration
+            if (explorer.Explore(combinedShape)) {
+                // Generate statistics
+                TCollection_ExtendedString topoStats, crvStats;
+                explorer.GetTopologyStatistics(topoStats);
+                explorer.GetCurveStatistics(crvStats);
+                
+                // Convert TCollection_ExtendedString to std::string
+                Standard_Integer topoLen = topoStats.LengthOfCString();
+                char* topoBuffer = new char[topoLen + 1];
+                topoStats.ToUTF8CString(reinterpret_cast<Standard_PCharacter&>(topoBuffer));
+                topologyStats = topoBuffer;
+                delete[] topoBuffer;
+                
+                Standard_Integer crvLen = crvStats.LengthOfCString();
+                char* crvBuffer = new char[crvLen + 1];
+                crvStats.ToUTF8CString(reinterpret_cast<Standard_PCharacter&>(crvBuffer));
+                curveStats = crvBuffer;
+                delete[] crvBuffer;
+                
+                uniqueCurvesCount = explorer.GetUniqueCurves3D().Extent();
+                topologyCount = 0;
+                for (int i = TopAbs_COMPOUND; i < TopAbs_SHAPE; i++) {
+                    topologyCount += explorer.GetShapesByType((TopAbs_ShapeEnum)i).Extent();
+                }
+                
+                explorationMessage = "Topology exploration completed successfully.\n";
+                explorationMessage += "\nTopology Statistics:\n" + topologyStats;
+                explorationMessage += "\n\nCurve Statistics:\n" + curveStats;
+            } else {
+                explorationMessage = "Topology exploration failed.\nNo valid shapes could be explored.";
+            }
+            
+        } catch (const Standard_Failure& e) {
+            explorationMessage = "Topology exploration failed: " + std::string(e.GetMessageString());
+        } catch (const std::exception& e) {
+            explorationMessage = "Topology exploration failed: " + std::string(e.what());
+        } catch (...) {
+            explorationMessage = "Topology exploration failed: Unknown error.";
+        }
+        
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, explorationMessage, uniqueCurvesCount, shapes]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText("Topology exploration completed");
+            
+            // Show exploration results in a dialog
+            QMessageBox::information(this, "Topology Exploration Results", 
+                QString::fromStdString(explorationMessage));
+            
+            // Ask user if they want to export the curves
+            if (uniqueCurvesCount > 0) {
+                QMessageBox::StandardButton reply = QMessageBox::question(
+                    this, "Export Curves", 
+                    QString::fromStdString("Do you want to export the " + std::to_string(uniqueCurvesCount) + " unique curves to STEP file?"),
+                    QMessageBox::Yes | QMessageBox::No);
+                
+                if (reply == QMessageBox::Yes) {
+                    // Open file dialog to choose save location
+                    QString filePath = QFileDialog::getSaveFileName(
+                        this,
+                        "Export Curves to STEP",
+                        "",
+                        "STEP Files (*.step *.stp)"
+                    );
+                    
+                    if (!filePath.isEmpty()) {
+                        // Perform export in a new thread
+                        QThreadPool::globalInstance()->start([this, filePath, shapes]() {
+                            try {
+                                // Create TopologyExplorer again for export
+                                TopologyExplorer explorer;
+                                
+                                // Combine shapes again
+                                BRep_Builder builder;
+                                TopoDS_Compound combinedShape;
+                                builder.MakeCompound(combinedShape);
+                                
+                                for (const auto& shape : shapes) {
+                                    builder.Add(combinedShape, shape);
+                                }
+                                
+                                explorer.Explore(combinedShape);
+                                
+                                // Export curves to STEP
+                                TCollection_ExtendedString extendedFilePath(filePath.toStdString().c_str());
+                                if (explorer.ExportCurvesToSTEP(extendedFilePath)) {
+                                    QMetaObject::invokeMethod(this, [this, filePath]() {
+                                        QMessageBox::information(this, "Export Curves", 
+                                            "Curves exported successfully to:\n" + filePath);
+                                    }, Qt::QueuedConnection);
+                                } else {
+                                    QMetaObject::invokeMethod(this, [this]() {
+                                        QMessageBox::critical(this, "Export Curves", 
+                                            "Failed to export curves to STEP file.");
+                                    }, Qt::QueuedConnection);
+                                }
+                                
+                            } catch (...) {
+                                QMetaObject::invokeMethod(this, [this]() {
+                                    QMessageBox::critical(this, "Export Curves", 
+                                        "An error occurred during curve export.");
+                                }, Qt::QueuedConnection);
+                            }
+                        });
+                    }
+                }
+            }
         }, Qt::QueuedConnection);
     });
 }
@@ -744,5 +1183,147 @@ void AnotherMainWindow::performShapeStatistics()
             
             QMessageBox::information(this, "Shape Statistics", statsMessage);
         }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::saveEdgesToBREPFile()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Save Edges to BREP", "No shapes loaded. Please open a STEP file first.");
+        return;
+    }
+    
+    // Open file dialog to choose save location
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save Edges to BREP",
+        "",
+        "BREP Files (*.brep)"
+    );
+    
+    if (filePath.isEmpty()) {
+        return; // User canceled
+    }
+    
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Saving edges to BREP file...");
+    
+    // Save in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, filePath]() {
+        bool success = false;
+        QString message;
+        
+        try {
+            // Create ShapeStatistics
+            ShapeStatistics stats;
+            
+            // Compute statistics for all shapes
+            for (const auto& shape : shapes) {
+                stats.computeStatistics(shape);
+            }
+            
+            // Save edges to BREP file
+            success = stats.saveEdgesToBREP(filePath.toStdString());
+            message = success ? "Edges saved successfully." : "Failed to save edges.";
+        } catch (const std::exception& e) {
+            message = QString("Error: %1").arg(e.what());
+            success = false;
+        } catch (...) {
+            message = "Unknown error occurred.";
+            success = false;
+        }
+        
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message, filePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(message);
+            
+            if (success) {
+                QMessageBox::information(this, "Save Edges to BREP", 
+                    QString("Edges saved successfully to:\n%1").arg(filePath));
+            } else {
+                QMessageBox::critical(this, "Save Edges to BREP", message);
+            }
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::performMeshRemoval()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Remove Meshable Parts", "No shapes loaded. Please open a STEP file first.");
+        return;
+    }
+    
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Removing meshable parts...");
+    
+    // Perform mesh removal in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes]() {
+        try {
+            // Create MeshRemover object
+            MeshRemover remover(0.01, 0.5);
+            
+            // Process all shapes
+            TopoDS_Compound combinedShape;
+            BRep_Builder builder;
+            builder.MakeCompound(combinedShape);
+            
+            // 合并所有形状到一个复合形状
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // 移除可三角剖分的部分
+            TopoDS_Shape outputShape;
+            remover.removeMeshableParts(combinedShape, outputShape);
+            
+            // 获取统计信息
+            int meshableCount = remover.getMeshablePartCount();
+            int nonMeshableCount = remover.getNonMeshablePartCount();
+            
+            // 更新UI在主线程
+            QMetaObject::invokeMethod(this, [this, outputShape, meshableCount, nonMeshableCount]() {
+                m_progressBar->setVisible(false);
+                m_infoLabel->setText("Mesh removal completed");
+                
+                // 清除当前显示
+                m_occWidget->eraseAll();
+                
+                // 显示剩余的不可三角剖分部分
+                if (!outputShape.IsNull()) {
+                    m_occWidget->displayShape(outputShape);
+                    m_occWidget->fitAll();
+                }
+                
+                // 显示统计信息
+                QString statsMessage = QString(
+                    "Mesh Removal Results:\n"
+                    "Meshable parts removed: %1\n"
+                    "Non-meshable parts remaining: %2\n"
+                    "Total parts processed: %3"
+                ).arg(meshableCount).arg(nonMeshableCount).arg(meshableCount + nonMeshableCount);
+                
+                QMessageBox::information(this, "Remove Meshable Parts", statsMessage);
+            }, Qt::QueuedConnection);
+        } catch (const std::exception& e) {
+            QMetaObject::invokeMethod(this, [this, e]() {
+                m_progressBar->setVisible(false);
+                m_infoLabel->setText("Mesh removal failed");
+                QMessageBox::critical(this, "Remove Meshable Parts", 
+                    QString("Error during mesh removal: %1").arg(e.what()));
+            }, Qt::QueuedConnection);
+        } catch (...) {
+            QMetaObject::invokeMethod(this, [this]() {
+                m_progressBar->setVisible(false);
+                m_infoLabel->setText("Mesh removal failed");
+                QMessageBox::critical(this, "Remove Meshable Parts", 
+                    "Unknown error during mesh removal");
+            }, Qt::QueuedConnection);
+        }
     });
 }
