@@ -11,6 +11,7 @@
 #include <TopLoc_Location.hxx>
 #include <BRep_Builder.hxx>
 #include <TopoDS_Compound.hxx>
+#include <BRepTools.hxx>
 #include <Standard_Failure.hxx>
 #include <TColStd_HSequenceOfTransient.hxx>
 #include <Interface_InterfaceModel.hxx>
@@ -84,6 +85,28 @@ bool STLExportDiagnoser::exportToSTL(const std::vector<TopoDS_Shape>& shapes, co
     return stlWriter.Write(resultCompound, filename.c_str());
 }
 
+bool STLExportDiagnoser::saveNonMeshablePartsToBREP(const std::vector<MeshDiagnosis>& diagnoses, const std::string& brepFilename) const
+{
+    // 获取所有不可网格化的形状
+    std::vector<TopoDS_Shape> nonMeshableShapes = getNonExportableShapes(diagnoses);
+    
+    if (nonMeshableShapes.empty()) {
+        return false;
+    }
+    
+    // 将所有不可网格化的形状合并为一个复合形状
+    BRep_Builder builder;
+    TopoDS_Compound resultCompound;
+    builder.MakeCompound(resultCompound);
+    
+    for (const auto& shape : nonMeshableShapes) {
+        builder.Add(resultCompound, shape);
+    }
+    
+    // 保存到BREP文件
+    return BRepTools::Write(resultCompound, brepFilename.c_str());
+}
+
 std::string STLExportDiagnoser::generateReport(const std::vector<MeshDiagnosis>& diagnoses) const
 {
     std::string report;
@@ -136,43 +159,44 @@ double STLExportDiagnoser::getDeflection() const
     return myDeflection;
 }
 
+// 递归分解形状的辅助函数
+void STLExportDiagnoser::recursiveDiagnose(const TopoDS_Shape& aShape, std::vector<MeshDiagnosis>& results) {
+    // 获取当前形状类型
+    TopAbs_ShapeEnum shapeType = aShape.ShapeType();
+    
+    // 检查是否为可直接诊断的形状类型
+    bool isDiagnosable = false;
+    if (shapeType == TopAbs_SOLID || shapeType == TopAbs_SHELL || shapeType == TopAbs_FACE) {
+        isDiagnosable = true;
+    }
+    
+    // 如果是可诊断的形状，直接进行诊断
+    if (isDiagnosable) {
+        results.push_back(diagnoseSingleEntity(aShape));
+    } else {
+        // 否则递归分解复合形状
+        TopoDS_Iterator it(aShape);
+        for (; it.More(); it.Next()) {
+            const TopoDS_Shape& subShape = it.Value();
+            recursiveDiagnose(subShape, results);
+        }
+    }
+}
+
 std::vector<MeshDiagnosis> STLExportDiagnoser::diagnoseAndMeshShapes(const TopoDS_Shape& aShape) 
-{
-    std::vector<MeshDiagnosis> results;
+{ 
+    std::vector<MeshDiagnosis> results; 
     
-    // 将复合模型分解为独立的实体（如SOLID, SHELL, FACE）
-    // 首先在实体(SOLID)级别进行处理
-    for (TopExp_Explorer solidExplorer(aShape, TopAbs_SOLID);
-         solidExplorer.More();
-         solidExplorer.Next()) {
-        
-        TopoDS_Shape currentShape = solidExplorer.Current();
-        results.push_back(diagnoseSingleEntity(currentShape));
-    }
+    // 递归分解并诊断所有形状
+    recursiveDiagnose(aShape, results);
     
-    // 如果模型中没有SOLID级别实体，则尝试在SHELL级别处理
+    // 如果递归分解后没有结果，说明形状可能是基本类型（如WIRE、EDGE、VERTEX）
+    // 或者是空形状，此时直接诊断原始形状
     if (results.empty()) {
-        for (TopExp_Explorer shellExplorer(aShape, TopAbs_SHELL);
-             shellExplorer.More();
-             shellExplorer.Next()) {
-            
-            TopoDS_Shape currentShape = shellExplorer.Current();
-            results.push_back(diagnoseSingleEntity(currentShape));
-        }
+        results.push_back(diagnoseSingleEntity(aShape));
     }
     
-    // 如果模型中没有SHELL级别实体，则尝试在FACE级别处理
-    if (results.empty()) {
-        for (TopExp_Explorer faceExplorer(aShape, TopAbs_FACE);
-             faceExplorer.More();
-             faceExplorer.Next()) {
-            
-            TopoDS_Shape currentShape = faceExplorer.Current();
-            results.push_back(diagnoseSingleEntity(currentShape));
-        }
-    }
-    
-    return results;
+    return results; 
 }
 
 bool STLExportDiagnoser::readStepAsSeparateShapes(const std::string& filename, std::vector<TopoDS_Shape>& outShapes) const

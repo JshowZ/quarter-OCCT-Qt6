@@ -34,6 +34,9 @@ public:
     // 导出可导出的形状到STL文件
     bool exportToSTL(const std::vector<TopoDS_Shape>& shapes, const std::string& filename) const;
     
+    // 保存不可网格化的部分到BREP文件
+    bool saveNonMeshablePartsToBREP(const std::vector<MeshDiagnosis>& diagnoses, const std::string& brepFilename) const;
+    
     // 生成诊断报告
     std::string generateReport(const std::vector<MeshDiagnosis>& diagnoses) const;
     
@@ -47,7 +50,10 @@ private:
     // 分解模型并独立诊断
     std::vector<MeshDiagnosis> diagnoseAndMeshShapes(const TopoDS_Shape& aShape);
     
-    // 从STEP文件读取所有独立实体
+    // 递归分解形状的辅助函数
+    void recursiveDiagnose(const TopoDS_Shape& aShape, std::vector<MeshDiagnosis>& results);
+    
+    // 从STEP文件读取并诊断所有形状
     bool readStepAsSeparateShapes(const std::string& filename, std::vector<TopoDS_Shape>& outShapes) const;
     
     // 诊断单个实体

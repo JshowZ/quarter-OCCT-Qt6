@@ -38,6 +38,8 @@ private slots:
     void performSTLMultiLevelExport();
     void extractCompoundCurves();
     void performTopologyExploration();
+    void performCurveExportToFiles();
+    void saveAllCurvesToSingleBREP();
 
 private:
     void setupUI();
@@ -70,4 +72,6 @@ private:
     QAction* m_stlMultiLevelExportAction;
     QAction* m_compoundCurveExtractAction;
     QAction* m_topologyExplorationAction;
+    QAction* m_importCurveToFileAction;
+    QAction* m_saveAllCurvesToSingleBREPAction;
 };

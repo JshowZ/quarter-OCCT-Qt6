@@ -9,6 +9,7 @@
 #include "STLMultiLevelExporter.h"
 #include "CompoundCurveExtractor.h"
 #include "TopologyExplorer.h"
+#include "importCurveToFile.h"
 
 #include <QtConcurrent>
 #include <QThreadPool>
@@ -149,6 +150,14 @@ void AnotherMainWindow::setupUI()
     // Add Topology Exploration action
     m_topologyExplorationAction = m_analysisMenu->addAction("Topology Exploration");
     m_topologyExplorationAction->setShortcut(tr("Ctrl+T"));
+    
+    // Add Import Curve to File action
+    m_importCurveToFileAction = m_analysisMenu->addAction("Import Curve to File");
+    m_importCurveToFileAction->setShortcut(tr("Ctrl+I"));
+    
+    // Add Save All Curves to Single BREP action
+    m_saveAllCurvesToSingleBREPAction = m_analysisMenu->addAction("Save All Curves to Single BREP");
+    m_saveAllCurvesToSingleBREPAction->setShortcut(tr("Ctrl+A"));
 
     m_occWidget = new OccWidget(this);
     m_mainLayout->addWidget(m_occWidget);
@@ -173,6 +182,8 @@ void AnotherMainWindow::setupConnections()
     connect(m_stlMultiLevelExportAction, &QAction::triggered, this, &AnotherMainWindow::performSTLMultiLevelExport);
     connect(m_compoundCurveExtractAction, &QAction::triggered, this, &AnotherMainWindow::extractCompoundCurves);
     connect(m_topologyExplorationAction, &QAction::triggered, this, &AnotherMainWindow::performTopologyExploration);
+    connect(m_importCurveToFileAction, &QAction::triggered, this, &AnotherMainWindow::performCurveExportToFiles);
+    connect(m_saveAllCurvesToSingleBREPAction, &QAction::triggered, this, &AnotherMainWindow::saveAllCurvesToSingleBREP);
     connect(m_stepLoader, &STEPLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
 }
 
@@ -469,8 +480,14 @@ void AnotherMainWindow::performSTLExportDiagnosis()
             exportSuccess = diagnoser.exportToSTL(exportableShapes, "exportable_shapes.stl");
         }
         
+        // Save non-exportable shapes to BREP if any
+        bool brepSaveSuccess = false;
+        if (!nonExportableShapes.empty()) {
+            brepSaveSuccess = diagnoser.saveNonMeshablePartsToBREP(allDiagnoses, "non_exportable_shapes.brep");
+        }
+        
         // Update UI in main thread
-        QMetaObject::invokeMethod(this, [this, allDiagnoses, exportableShapes, nonExportableShapes, exportSuccess]() {
+        QMetaObject::invokeMethod(this, [this, allDiagnoses, exportableShapes, nonExportableShapes, exportSuccess, brepSaveSuccess]() {
             m_progressBar->setVisible(false);
             m_infoLabel->setText("STL export diagnosis completed");
             
@@ -482,7 +499,8 @@ void AnotherMainWindow::performSTLExportDiagnosis()
                 "Non-exportable entities: %3\n"
                 "Exportable faces: %4\n"
                 "Triangulated faces: %5\n"
-                "\nExportable shapes %6 to exportable_shapes.stl"
+                "\nExportable shapes %6 to exportable_shapes.stl\n"
+                "Non-exportable shapes %7 to non_exportable_shapes.brep"
             );
             
             // Calculate total faces and triangulated faces
@@ -499,7 +517,8 @@ void AnotherMainWindow::performSTLExportDiagnosis()
                 .arg(nonExportableShapes.size())
                 .arg(totalFaces)
                 .arg(totalTriangulatedFaces)
-                .arg(exportSuccess ? "successfully exported" : "failed to export");
+                .arg(exportSuccess ? "successfully exported" : "failed to export")
+                .arg(brepSaveSuccess ? "successfully saved" : "failed to save");
             
             QMessageBox::information(this, "STL Export Diagnosis", statsMessage);
         }, Qt::QueuedConnection);
@@ -1325,5 +1344,161 @@ void AnotherMainWindow::performMeshRemoval()
                     "Unknown error during mesh removal");
             }, Qt::QueuedConnection);
         }
+    });
+}
+
+void AnotherMainWindow::performCurveExportToFiles()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Import Curve to File", "No shapes loaded to process. Please open a STEP file first.");
+        return;
+    }
+
+    // Ask user to select output directory
+    QString outputDir = QFileDialog::getExistingDirectory(
+        this,
+        "Select Output Directory",
+        ".",
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+
+    if (outputDir.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Processing and saving curves...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, outputDir]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+
+        try {
+            // Create importCurveToFile instance
+            importCurveToFile curveImporter;
+            
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Process and save curves
+            success = curveImporter.processAndSaveCurves(combinedShape, outputDir.toStdString());
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = curveImporter.getCurveTypeStats();
+                message = "Successfully processed and saved curves to BREP files.\n";
+                message += "Output directory: " + outputDir.toStdString() + "\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+            } else {
+                message = "Failed to process and save curves.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during curve processing.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "Curve export completed" : "Curve export failed");
+            
+            QMessageBox::information(this, "Import Curve to File", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::saveAllCurvesToSingleBREP()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Save All Curves to Single BREP", "No shapes loaded to process. Please open a STEP file first.");
+        return;
+    }
+
+    // Ask user to select output file
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save All Curves to BREP",
+        "all_curves.brep",
+        "BREP Files (*.brep)"
+    );
+
+    if (filePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Processing and saving all curves to single BREP...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, filePath]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+
+        try {
+            // Create importCurveToFile instance
+            importCurveToFile curveImporter;
+            
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Process and save all curves to single BREP file
+            success = curveImporter.processAndSaveAllCurvesToSingleBREP(combinedShape, filePath.toStdString());
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = curveImporter.getCurveTypeStats();
+                message = "Successfully processed and saved all curves to single BREP file.\n";
+                message += "Output file: " + filePath.toStdString() + "\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+            } else {
+                message = "Failed to process and save curves.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during curve processing.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message, filePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "Curve export completed" : "Curve export failed");
+            
+            QMessageBox::information(this, "Save All Curves to Single BREP", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
     });
 }
