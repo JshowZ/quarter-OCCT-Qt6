@@ -158,6 +158,10 @@ void AnotherMainWindow::setupUI()
     // Add Save All Curves to Single BREP action
     m_saveAllCurvesToSingleBREPAction = m_analysisMenu->addAction("Save All Curves to Single BREP");
     m_saveAllCurvesToSingleBREPAction->setShortcut(tr("Ctrl+A"));
+    
+    // Add Save Curves as Points action
+    m_saveCurvesAsPointsAction = m_analysisMenu->addAction("Save Curves as Points");
+    m_saveCurvesAsPointsAction->setShortcut(tr("Ctrl+P"));
 
     m_occWidget = new OccWidget(this);
     m_mainLayout->addWidget(m_occWidget);
@@ -184,6 +188,7 @@ void AnotherMainWindow::setupConnections()
     connect(m_topologyExplorationAction, &QAction::triggered, this, &AnotherMainWindow::performTopologyExploration);
     connect(m_importCurveToFileAction, &QAction::triggered, this, &AnotherMainWindow::performCurveExportToFiles);
     connect(m_saveAllCurvesToSingleBREPAction, &QAction::triggered, this, &AnotherMainWindow::saveAllCurvesToSingleBREP);
+    connect(m_saveCurvesAsPointsAction, &QAction::triggered, this, &AnotherMainWindow::saveCurvesAsPoints);
     connect(m_stepLoader, &STEPLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
 }
 
@@ -1498,6 +1503,84 @@ void AnotherMainWindow::saveAllCurvesToSingleBREP()
             m_infoLabel->setText(success ? "Curve export completed" : "Curve export failed");
             
             QMessageBox::information(this, "Save All Curves to Single BREP", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::saveCurvesAsPoints()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Save Curves as Points", "No shapes loaded to process. Please open a STEP file first.");
+        return;
+    }
+
+    // Ask user to select output file
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save Curves as Points",
+        "curves_points.txt",
+        "Text Files (*.txt)"
+    );
+
+    if (filePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Processing and saving curves as points...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, filePath]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+
+        try {
+            // Create importCurveToFile instance
+            importCurveToFile curveImporter;
+            
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Process and save curves as points
+            success = curveImporter.processAndSaveCurvesAsPoints(combinedShape, filePath.toStdString());
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = curveImporter.getCurveTypeStats();
+                message = "Successfully processed and saved curves as points.\n";
+                message += "Output file: " + filePath.toStdString() + "\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+            } else {
+                message = "Failed to process and save curves as points.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during curve processing.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message, filePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "Curve point export completed" : "Curve point export failed");
+            
+            QMessageBox::information(this, "Save Curves as Points", 
                 QString::fromStdString(message));
         }, Qt::QueuedConnection);
     });

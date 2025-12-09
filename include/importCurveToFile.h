@@ -43,6 +43,15 @@ public:
     bool processAndSaveAllCurvesToSingleBREP(const TopoDS_Shape& shape, const std::string& outputFile);
 
     /**
+     * @brief 处理模型，提取所有曲线并离散化保存点到文件
+     * @param shape 输入的模型形状
+     * @param outputFile 输出点文件路径
+     * @param deflection 离散化精度，默认为1e-3
+     * @return 是否成功
+     */
+    bool processAndSaveCurvesAsPoints(const TopoDS_Shape& shape, const std::string& outputFile, double deflection = 1e-3);
+
+    /**
      * @brief 获取曲线类型统计
      * @return 曲线类型到数量的映射
      */

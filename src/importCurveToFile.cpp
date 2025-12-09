@@ -14,14 +14,15 @@
 #include <Geom_BezierCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <Geom_BoundedCurve.hxx>
+#include <GeomAdaptor_Curve.hxx>
+#include <GCPnts_UniformDeflection.hxx>
+#include <gp_Pnt.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRep_Builder.hxx>
 #include <TopoDS_Compound.hxx>
 #include <BRepTools.hxx>
 #include <Standard_Failure.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
-#include <GeomAdaptor_Curve.hxx>
-#include <gp_Pnt.hxx>
 
 #include <iostream>
 #include <fstream>
@@ -201,6 +202,93 @@ bool importCurveToFile::processAndSaveAllCurvesToSingleBREP(const TopoDS_Shape& 
 
         // 保存所有曲线到单个BREP文件
         return saveEdgesToBREP(allEdges, outputFile);
+    } catch (const Standard_Failure& e) {
+        std::cerr << "OCCT Exception: " << e.GetMessageString() << std::endl;
+        return false;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        return false;
+    } catch (...) {
+        std::cerr << "Unknown exception" << std::endl;
+        return false;
+    }
+}
+
+bool importCurveToFile::processAndSaveCurvesAsPoints(const TopoDS_Shape& shape, const std::string& outputFile, double deflection) {
+    try {
+        // 清空之前的统计数据
+        m_curveTypeStats.clear();
+
+        // 提取所有曲线
+        std::map<std::string, std::vector<TopoDS_Edge>> curveMap;
+        extractCurves(shape, curveMap);
+
+        // 将所有曲线的离散点保存到文件
+        std::ofstream outFile(outputFile);
+        if (!outFile.is_open()) {
+            std::cerr << "Failed to open output file: " << outputFile << std::endl;
+            return false;
+        }
+        
+        // 写入总曲线数
+        int totalCurves = 0;
+        for (const auto& pair : curveMap) {
+            totalCurves += pair.second.size();
+        }
+        outFile << "Number of curves: " << totalCurves << std::endl;
+        outFile << "==================" << std::endl;
+        
+        // 遍历每种曲线类型
+        int curveIndex = 0;
+        
+        for (const auto& pair : curveMap) {
+            const std::string& curveType = pair.first;
+            const std::vector<TopoDS_Edge>& edges = pair.second;
+            
+            // 更新统计信息
+            m_curveTypeStats[curveType] = edges.size();
+            
+            // 对每条边进行处理
+            for (const auto& edge : edges) {
+                curveIndex++;
+                Standard_Real first, last;
+                Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, first, last);
+                
+                if (curve.IsNull()) {
+                    continue;
+                }
+                
+                // 创建曲线适配器
+                GeomAdaptor_Curve adaptor(curve);
+                
+                // 使用UniformDeflection算法进行离散化
+                GCPnts_UniformDeflection uniformDeflection(adaptor, deflection, first, last);
+                
+                if (uniformDeflection.IsDone()) {
+                    // 获取离散点
+                    int pointCount = uniformDeflection.NbPoints();
+                    
+                    // 写入曲线信息和点的数量
+                    outFile << "\nCurve " << curveIndex << ":" << std::endl;
+                    outFile << "Type: " << curveType << std::endl;
+                    outFile << "Points: " << pointCount << std::endl;
+                    outFile << "------------------" << std::endl;
+                    
+                    // 写入该曲线的所有点
+                    for (int i = 1; i <= pointCount; ++i) {
+                        gp_Pnt point = uniformDeflection.Value(i);
+                        outFile << point.X() << " " 
+                                << point.Y() << " " 
+                                << point.Z() << std::endl;
+                    }
+                }
+            }
+        }
+        
+        outFile.close();
+        
+        std::cout << "Successfully saved discrete points of " << totalCurves << " curves to " << outputFile << std::endl;
+        return true;
     } catch (const Standard_Failure& e) {
         std::cerr << "OCCT Exception: " << e.GetMessageString() << std::endl;
         return false;

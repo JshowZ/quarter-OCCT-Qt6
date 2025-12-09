@@ -40,6 +40,7 @@ private slots:
     void performTopologyExploration();
     void performCurveExportToFiles();
     void saveAllCurvesToSingleBREP();
+    void saveCurvesAsPoints();
 
 private:
     void setupUI();
@@ -74,4 +75,5 @@ private:
     QAction* m_topologyExplorationAction;
     QAction* m_importCurveToFileAction;
     QAction* m_saveAllCurvesToSingleBREPAction;
+    QAction* m_saveCurvesAsPointsAction;
 };
