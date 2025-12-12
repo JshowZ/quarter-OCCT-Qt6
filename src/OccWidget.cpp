@@ -8,36 +8,97 @@
 #include <AIS_InteractiveContext.hxx>
 
 #include <QMouseEvent>
+#include <QPaintEvent>
+#include <QResizeEvent>
+#include <QShowEvent>
+#include <QFocusEvent>
 
 OccWidget::OccWidget(QWidget* parent)
-    : QOpenGLWidget(parent)
+    : QWidget(parent)
     , m_isRotating(false)
     , m_isPanning(false)
+    , m_isInitialized(false)
 {
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
+    setAttribute(Qt::WA_NativeWindow, true); // 确保窗口有原生句柄
+    setAttribute(Qt::WA_PaintOnScreen, true); // 直接在屏幕上绘制
 }
 
 OccWidget::~OccWidget()
 {
+    // 确保正确释放资源
+    if (!m_wntWindow.IsNull()) {
+        m_wntWindow->Unmap();
+    }
 }
 
-void OccWidget::initializeGL()
+void OccWidget::showEvent(QShowEvent* event)
 {
-    initOCC();
+    QWidget::showEvent(event);
+    
+    // 在窗口显示后初始化OCC，确保有有效的窗口句柄
+    if (!m_isInitialized) {
+        initOCC();
+        m_isInitialized = true;
+    }
 }
 
-void OccWidget::paintGL()
+void OccWidget::paintEvent(QPaintEvent* event)
 {
+    Q_UNUSED(event);
+    
+    // 确保OCC已初始化
+    if (!m_isInitialized) {
+        initOCC();
+        m_isInitialized = true;
+    }
+    
     if (!m_view.IsNull()) {
         m_view->Redraw();
     }
 }
 
-void OccWidget::resizeGL(int width, int height)
+void OccWidget::resizeEvent(QResizeEvent* event)
 {
-    if (!m_view.IsNull()) {
+    QWidget::resizeEvent(event);
+    
+    if (m_isInitialized && !m_view.IsNull()) {
+        // 通知视图窗口大小已更改，使用MustBeResized()方法
         m_view->MustBeResized();
+        m_view->Redraw();
+    }
+}
+
+void OccWidget::focusInEvent(QFocusEvent* event)
+{
+    QWidget::focusInEvent(event);
+    
+    // 窗口获得焦点时重绘
+    if (m_isInitialized && !m_view.IsNull()) {
+        m_view->Redraw();
+    }
+}
+
+void OccWidget::focusOutEvent(QFocusEvent* event)
+{
+    QWidget::focusOutEvent(event);
+    
+    // 窗口失去焦点时重绘（可选，根据需要调整）
+    if (m_isInitialized && !m_view.IsNull()) {
+        m_view->Redraw();
+    }
+}
+
+void OccWidget::changeEvent(QEvent* event)
+{
+    QWidget::changeEvent(event);
+    
+    // 处理窗口激活状态变化
+    if (event->type() == QEvent::ActivationChange) {
+        if (m_isInitialized && !m_view.IsNull()) {
+            m_view->Redraw();
+        }
     }
 }
 
@@ -59,11 +120,13 @@ void OccWidget::initOCC()
     m_viewer->SetDefaultBackgroundColor(Quantity_NOC_WHITE);
 
     m_view = m_viewer->CreateView();
-    Handle(WNT_Window) wntWindow = new WNT_Window((Aspect_Handle)winId());
-    m_view->SetWindow(wntWindow);
+    
+    // 创建WNT_Window并保存到成员变量
+    m_wntWindow = new WNT_Window((Aspect_Handle)winId());
+    m_view->SetWindow(m_wntWindow);
 
-    if (!wntWindow->IsMapped()) {
-        wntWindow->Map();
+    if (!m_wntWindow->IsMapped()) {
+        m_wntWindow->Map();
     }
 
     m_context = new AIS_InteractiveContext(m_viewer);
@@ -71,10 +134,17 @@ void OccWidget::initOCC()
 
     m_view->SetBackgroundColor(Quantity_NOC_WHITE);
     m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_RED, 0.1, V3d_ZBUFFER);
+    m_view->MustBeResized();
+    m_view->Redraw();
 }
 
 void OccWidget::displayShape(const TopoDS_Shape& shape)
 {
+    if (!m_isInitialized) {
+        initOCC();
+        m_isInitialized = true;
+    }
+    
     if (!m_context.IsNull() && !shape.IsNull()) {
         Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
         m_context->Display(aisShape, false);
@@ -84,10 +154,15 @@ void OccWidget::displayShape(const TopoDS_Shape& shape)
 
 void OccWidget::fitAll()
 {
+    if (!m_isInitialized) {
+        initOCC();
+        m_isInitialized = true;
+    }
+    
     if (!m_view.IsNull()) {
         m_view->FitAll();
         m_view->ZFitAll();
-        update();
+        m_view->Redraw();
     }
 }
 
@@ -103,6 +178,8 @@ void OccWidget::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {
         m_isRotating = true;
+        // 开始旋转，调用StartRotation初始化旋转状态
+        m_view->StartRotation(event->pos().x(), event->pos().y());
     }
     else if (event->button() == Qt::RightButton) {
         m_isPanning = true;
@@ -128,25 +205,33 @@ void OccWidget::mouseMoveEvent(QMouseEvent* event)
         int dy = currentPos.y() - m_lastMousePos.y();
 
         if (m_isRotating) {
+            // 继续旋转，传递当前鼠标位置
             m_view->Rotation(currentPos.x(), currentPos.y());
         }
         else if (m_isPanning) {
+            // 使用正确的平移方法，OCCT的Y轴与Qt相反
             m_view->Pan(dx, -dy);
         }
 
         m_lastMousePos = currentPos;
-        update();
+        m_view->Redraw();
     }
 }
 
 void OccWidget::wheelEvent(QWheelEvent* event)
 {
     if (!m_view.IsNull()) {
-        double zoomFactor = 1.1;
-        if (event->angleDelta().y() < 0) {
-            zoomFactor = 1.0 / zoomFactor;
+        double zoomFactor = 1.0;
+        
+        // 计算缩放因子
+        if (event->angleDelta().y() > 0) {
+            zoomFactor = 1.1; // 放大
+        } else {
+            zoomFactor = 0.9; // 缩小
         }
-        m_view->SetZoom(zoomFactor);
-        update();
+        
+        // 使用正确的缩放方法，SetZoom接受缩放因子和可选的布尔参数
+        m_view->SetZoom(zoomFactor, false); // false表示相对于当前状态缩放
+        m_view->Redraw();
     }
 }

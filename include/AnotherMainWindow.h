@@ -15,6 +15,7 @@
 
 class OccWidget;
 class STEPLoader;
+class IGESLoader;
 
 class AnotherMainWindow : public QMainWindow{
     Q_OBJECT
@@ -25,8 +26,10 @@ public:
 
 private slots:
     void openSTEPFile();
+    void openIGESFile();
     void zoomAll();
     void onFileLoaded(bool success, const QString& message);
+    void onIGESFileLoaded(bool success, const QString& message);
     void exportSTLFile();
     void loadStepWithStatistics();
     void performMeshAbilityAnalysis();
@@ -41,6 +44,7 @@ private slots:
     void performCurveExportToFiles();
     void saveAllCurvesToSingleBREP();
     void saveCurvesAsPoints();
+    void exportSTLWithCurvePoints();
 
 private:
     void setupUI();
@@ -48,6 +52,7 @@ private:
 
     OccWidget* m_occWidget;
     STEPLoader* m_stepLoader;
+    IGESLoader* m_igesLoader;
 
     QWidget* m_centralWidget;
     QVBoxLayout* m_mainLayout;
@@ -61,6 +66,7 @@ private:
     QMenu* m_viewMenu;
     QMenu* m_analysisMenu;
     QAction* m_openAction;
+    QAction* m_openIGESAction;
     QAction* m_zoomAllAction;
     QAction* m_exportSTLAction;
     QAction* m_loadStepAction;
@@ -76,4 +82,5 @@ private:
     QAction* m_importCurveToFileAction;
     QAction* m_saveAllCurvesToSingleBREPAction;
     QAction* m_saveCurvesAsPointsAction;
+    QAction* m_exportSTLWithCurvePointsAction;
 };

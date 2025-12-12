@@ -1,6 +1,7 @@
 #include "AnotherMainWindow.h"
 #include "OccWidget.h"
 #include "STEPLoader.h"
+#include "IGESLoader.h"
 #include "MeshabilitySeparator.h"
 #include "CurveExtractor.h"
 #include "ShapeStatistics.h"
@@ -10,6 +11,7 @@
 #include "CompoundCurveExtractor.h"
 #include "TopologyExplorer.h"
 #include "importCurveToFile.h"
+#include "STLExportWithCurvePoints.h"
 
 #include <QtConcurrent>
 #include <QThreadPool>
@@ -43,6 +45,7 @@ AnotherMainWindow::AnotherMainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_occWidget(nullptr)
     , m_stepLoader(nullptr)
+    , m_igesLoader(nullptr)
     , m_centralWidget(nullptr)
     , m_mainLayout(nullptr)
     , m_controlLayout(nullptr)
@@ -53,6 +56,7 @@ AnotherMainWindow::AnotherMainWindow(QWidget* parent)
     , m_viewMenu(nullptr)
     , m_analysisMenu(nullptr)
     , m_openAction(nullptr)
+    , m_openIGESAction(nullptr)
     , m_zoomAllAction(nullptr)
     , m_exportSTLAction(nullptr)
     , m_loadStepAction(nullptr)
@@ -73,6 +77,7 @@ AnotherMainWindow::AnotherMainWindow(QWidget* parent)
 AnotherMainWindow::~AnotherMainWindow()
 {
     delete m_stepLoader;
+    delete m_igesLoader;
 }
 
 void AnotherMainWindow::setupUI()
@@ -106,6 +111,10 @@ void AnotherMainWindow::setupUI()
     m_fileMenu = m_menuBar->addMenu("File");
     m_openAction = m_fileMenu->addAction("Open STEP File");
     m_openAction->setShortcut(tr("Ctrl+O"));
+    
+    // Add open IGES action
+    m_openIGESAction = m_fileMenu->addAction("Open IGES File");
+    m_openIGESAction->setShortcut(tr("Ctrl+I"));
     
     // Add load STEP action
     m_loadStepAction = m_fileMenu->addAction("Load STEP with Statistics");
@@ -162,11 +171,16 @@ void AnotherMainWindow::setupUI()
     // Add Save Curves as Points action
     m_saveCurvesAsPointsAction = m_analysisMenu->addAction("Save Curves as Points");
     m_saveCurvesAsPointsAction->setShortcut(tr("Ctrl+P"));
+    
+    // Add Export STL with Curve Points action
+    m_exportSTLWithCurvePointsAction = m_analysisMenu->addAction("Export STL with Curve Points");
+    m_exportSTLWithCurvePointsAction->setShortcut(tr("Ctrl+W"));
 
     m_occWidget = new OccWidget(this);
     m_mainLayout->addWidget(m_occWidget);
 
     m_stepLoader = new STEPLoader(this);
+    m_igesLoader = new IGESLoader(this);
     m_mainLayout->setStretch(1, 1);
 }
 
@@ -174,6 +188,7 @@ void AnotherMainWindow::setupConnections()
 {
     // Connect menu actions instead of buttons
     connect(m_openAction, &QAction::triggered, this, &AnotherMainWindow::openSTEPFile);
+    connect(m_openIGESAction, &QAction::triggered, this, &AnotherMainWindow::openIGESFile);
     connect(m_loadStepAction, &QAction::triggered, this, &AnotherMainWindow::loadStepWithStatistics);
     connect(m_exportSTLAction, &QAction::triggered, this, &AnotherMainWindow::exportSTLFile);
     connect(m_meshAbilityAnalysisAction, &QAction::triggered, this, &AnotherMainWindow::performMeshAbilityAnalysis);
@@ -189,7 +204,9 @@ void AnotherMainWindow::setupConnections()
     connect(m_importCurveToFileAction, &QAction::triggered, this, &AnotherMainWindow::performCurveExportToFiles);
     connect(m_saveAllCurvesToSingleBREPAction, &QAction::triggered, this, &AnotherMainWindow::saveAllCurvesToSingleBREP);
     connect(m_saveCurvesAsPointsAction, &QAction::triggered, this, &AnotherMainWindow::saveCurvesAsPoints);
+    connect(m_exportSTLWithCurvePointsAction, &QAction::triggered, this, &AnotherMainWindow::exportSTLWithCurvePoints);
     connect(m_stepLoader, &STEPLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
+    connect(m_igesLoader, &IGESLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
 }
 
 void AnotherMainWindow::openSTEPFile()
@@ -225,6 +242,39 @@ void AnotherMainWindow::openSTEPFile()
     }
 }
 
+void AnotherMainWindow::openIGESFile()
+{
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        "SELECT IGES FILE",
+        "",
+        "IGES Files (*.iges *.igs)"
+    );
+
+    if (!filePath.isEmpty()) {
+        m_progressBar->setVisible(true);
+        m_infoLabel->setText("loading IGESfile...");
+
+        #ifdef ENABLE_CONSOLE_OUTPUT
+        printf("Opening IGES file: %s\n", filePath.toLocal8Bit().constData());
+        #endif
+
+        // Load in a separate thread to avoid UI blocking
+        QThreadPool::globalInstance()->start([this, filePath]() {
+            bool success = m_igesLoader->loadIGESFile(filePath);
+            QString message = success ? "load success" : "load failed";
+            
+            #ifdef ENABLE_CONSOLE_OUTPUT
+            printf("IGES file load %s\n", success ? "successful" : "failed");
+            #endif
+            
+            QMetaObject::invokeMethod(this, [this, success, message]() {
+                onIGESFileLoaded(success, message);
+                }, Qt::QueuedConnection);
+        });
+    }
+}
+
 void AnotherMainWindow::zoomAll()
 {
     if (m_occWidget) {
@@ -240,6 +290,24 @@ void AnotherMainWindow::onFileLoaded(bool success, const QString& message)
     if (success) {
         // LOAD SHAPES INTO OCC WIDGET
         const auto& shapes = m_stepLoader->getShapes();
+        for (const auto& shape : shapes) {
+            m_occWidget->displayShape(shape);
+        }
+        m_occWidget->fitAll();
+    }
+    else {
+        QMessageBox::critical(this, "ERROE", "CAN NOT LOAD STEP FILE");
+    }
+}
+
+void AnotherMainWindow::onIGESFileLoaded(bool success, const QString& message)
+{
+    m_progressBar->setVisible(false);
+    m_infoLabel->setText(message);
+
+    if (success) {
+        // LOAD SHAPES INTO OCC WIDGET
+        const auto& shapes = m_igesLoader->getShapes();
         for (const auto& shape : shapes) {
             m_occWidget->displayShape(shape);
         }
@@ -1581,6 +1649,103 @@ void AnotherMainWindow::saveCurvesAsPoints()
             m_infoLabel->setText(success ? "Curve point export completed" : "Curve point export failed");
             
             QMessageBox::information(this, "Save Curves as Points", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::exportSTLWithCurvePoints()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_stepLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Export STL with Curve Points", "No shapes loaded to process. Please open a STEP file first.");
+        return;
+    }
+
+    // Ask user to select STL output file
+    QString stlFilePath = QFileDialog::getSaveFileName(
+        this,
+        "Save STL File",
+        "exported_model.stl",
+        "STL Files (*.stl)"
+    );
+
+    if (stlFilePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Exporting STL and extracting curve points...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, stlFilePath]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+        std::vector<CurvePointSet> curvePointSets;
+
+        try {
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Create STLExportWithCurvePoints instance
+            STLExportWithCurvePoints exporter;
+            
+            // Set export parameters
+            exporter.setSTLDeflection(0.01);
+            exporter.setCurveDeflection(1e-3);
+            
+            // Perform export and curve extraction
+            success = exporter.exportSTLAndExtractCurves(combinedShape, 
+                                                     stlFilePath.toStdString(), 
+                                                     curvePointSets);
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = exporter.getCurveTypeStats();
+                message = "Successfully exported STL and extracted curve points.\n";
+                message += "STL file: " + stlFilePath.toStdString() + "\n";
+                message += "Extracted " + std::to_string(curvePointSets.size()) + " curve point sets.\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+                
+                // Calculate total points count
+                int totalPoints = 0;
+                for (const auto& curveSet : curvePointSets) {
+                    totalPoints += curveSet.points.size();
+                }
+                message += "\nTotal points: " + std::to_string(totalPoints) + "\n";
+                
+                // Optionally, you can process the curvePointSets here
+                // For example, save them to a file if needed
+                // Or use them for visualization
+            } else {
+                message = "Failed to export STL and extract curve points.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during export and curve extraction.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message, stlFilePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "STL export with curve points completed" : "STL export with curve points failed");
+            
+            QMessageBox::information(this, "Export STL with Curve Points", 
                 QString::fromStdString(message));
         }, Qt::QueuedConnection);
     });

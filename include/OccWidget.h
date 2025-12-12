@@ -1,11 +1,11 @@
 #pragma once
-
-#include <QOpenGLWidget>
+#include <QWidget>
 #include <AIS_InteractiveContext.hxx>
 #include <V3d_View.hxx>
 #include <TopoDS_Shape.hxx>
+#include <WNT_Window.hxx>
 
-class OccWidget : public QOpenGLWidget
+class OccWidget : public QWidget
 {
     Q_OBJECT
 
@@ -18,9 +18,12 @@ public:
     void eraseAll();
 
 protected:
-    void initializeGL() override;
-    void paintGL() override;
-    void resizeGL(int width, int height) override;
+    void showEvent(QShowEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+    void focusInEvent(QFocusEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -33,9 +36,11 @@ private:
     Handle(V3d_Viewer) m_viewer;
     Handle(V3d_View) m_view;
     Handle(AIS_InteractiveContext) m_context;
+    Handle(WNT_Window) m_wntWindow;
 
     QPoint m_lastMousePos;
     bool m_isRotating;
     bool m_isPanning;
+    bool m_isInitialized;
 };
 

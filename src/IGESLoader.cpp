@@ -1,4 +1,4 @@
-#include "STEPLoader.h"
+#include "IGESLoader.h"
 #include <IFSelect_ReturnStatus.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopExp_Explorer.hxx>
@@ -13,28 +13,21 @@
 #include <ShapeFix_Wire.hxx>
 #include <ShapeExtend_WireData.hxx>
 #include <TopoDS.hxx>
-#include <Interface_Static.hxx>
 
-STEPLoader::STEPLoader(QObject* parent)
+IGESLoader::IGESLoader(QObject* parent)
     : QObject(parent),
       m_enableFix(false)
 {
 }
 
-bool STEPLoader::loadSTEPFile(const QString& filePath, bool enableFix)
+bool IGESLoader::loadIGESFile(const QString& filePath, bool enableFix)
 {
     m_shapes.clear();
     m_enableFix = enableFix;
 
-    Interface_Static::SetIVal("read.step.brep.mode", 1);
-    Interface_Static::SetRVal("read.maxprecision.val", 0.01);
-    Interface_Static::SetIVal("read.step.product.mode", 0);
-    Interface_Static::SetCVal("read.surfacecurve.continuity", "C0");
-    Interface_Static::SetIVal("read.step.surfacecurve.mode", 1);
-
     const char* filePathCStr = filePath.toLocal8Bit().constData();
 
-    // read STEP file
+    // read IGES file
     IFSelect_ReturnStatus status = m_reader.ReadFile(filePathCStr);
 
     if (status != IFSelect_RetDone) {
@@ -49,7 +42,7 @@ bool STEPLoader::loadSTEPFile(const QString& filePath, bool enableFix)
     QString statusMessage = QString("Read file done, %1 roots for transfer").arg(nbRootsForTransfer);
 
     // Set transfer mode to include all entity types (solids, curves, lines, etc.)
-    //m_reader.SetTransferMode(STEPControl_AsIs);
+    //m_reader.SetTransferMode(IGESControl_AsIs);
     
     // transfer roots to shapes
     bool transferOk = m_reader.TransferRoots();
@@ -81,7 +74,7 @@ bool STEPLoader::loadSTEPFile(const QString& filePath, bool enableFix)
     return true;
 }
 
-TopoDS_Shape STEPLoader::fixShape(const TopoDS_Shape& shape)
+TopoDS_Shape IGESLoader::fixShape(const TopoDS_Shape& shape)
 {
     // 复制原始形状
     TopoDS_Shape fixedShape = shape;
@@ -97,11 +90,6 @@ TopoDS_Shape STEPLoader::fixShape(const TopoDS_Shape& shape)
         // 检查曲线是否是无限直线
         Standard_Real first, last;
         Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, first, last);
-
-        if (curve.IsNull())
-        {
-            continue;
-        }
         
         if (curve->IsKind(STANDARD_TYPE(Geom_Line))) {
             // 重新裁剪曲线到合理范围（使用现有边界）
