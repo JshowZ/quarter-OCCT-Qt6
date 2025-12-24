@@ -15,8 +15,8 @@
 #include <TopoDS.hxx>
 
 IGESLoader::IGESLoader(QObject* parent)
-    : QObject(parent),
-      m_enableFix(false)
+    : QObject(parent)
+    , m_enableFix(false)
 {
 }
 
@@ -30,7 +30,8 @@ bool IGESLoader::loadIGESFile(const QString& filePath, bool enableFix)
     // read IGES file
     IFSelect_ReturnStatus status = m_reader.ReadFile(filePathCStr);
 
-    if (status != IFSelect_RetDone) {
+    if (status != IFSelect_RetDone)
+    {
         emit fileLoaded(false, "fail");
         return false;
     }
@@ -38,7 +39,7 @@ bool IGESLoader::loadIGESFile(const QString& filePath, bool enableFix)
     Standard_Boolean failsonly = Standard_False;
     m_reader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity);
 
-    int nbRootsForTransfer =  m_reader.NbRootsForTransfer();
+    int nbRootsForTransfer = m_reader.NbRootsForTransfer();
     QString statusMessage = QString("Read file done, %1 roots for transfer").arg(nbRootsForTransfer);
 
     // Set transfer mode to include all entity types (solids, curves, lines, etc.)
@@ -48,7 +49,8 @@ bool IGESLoader::loadIGESFile(const QString& filePath, bool enableFix)
     bool transferOk = m_reader.TransferRoots();
     m_reader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity);
 
-    if (!transferOk) {
+    if (!transferOk)
+    {
         emit fileLoaded(false, "success");
         return false;
     }
@@ -57,11 +59,14 @@ bool IGESLoader::loadIGESFile(const QString& filePath, bool enableFix)
     int nbShapes = m_reader.NbShapes();
     int shapesLoaded = 0;
 
-    for (int i = 1; i <= nbShapes; i++) {
+    for (int i = 1; i <= nbShapes; i++)
+    {
         TopoDS_Shape shape = m_reader.Shape(i);
-        if (!shape.IsNull()) {
+        if (!shape.IsNull())
+        {
             // 如果启用了修复工具，修复形状
-            if (m_enableFix) {
+            if (m_enableFix)
+            {
                 shape = fixShape(shape);
             }
             m_shapes.push_back(shape);
@@ -84,14 +89,16 @@ TopoDS_Shape IGESLoader::fixShape(const TopoDS_Shape& shape)
     TopoDS_Shape tempShape = shape;
     
     // 遍历所有边
-    for (TopExp_Explorer exp(tempShape, TopAbs_EDGE); exp.More(); exp.Next()) {
+    for (TopExp_Explorer exp(tempShape, TopAbs_EDGE); exp.More(); exp.Next())
+    {
         TopoDS_Edge edge = TopoDS::Edge(exp.Current());
         
         // 检查曲线是否是无限直线
         Standard_Real first, last;
         Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, first, last);
         
-        if (curve->IsKind(STANDARD_TYPE(Geom_Line))) {
+        if (curve->IsKind(STANDARD_TYPE(Geom_Line)))
+        {
             // 重新裁剪曲线到合理范围（使用现有边界）
             Handle(Geom_TrimmedCurve) trimmed = 
                 new Geom_TrimmedCurve(curve, first, last);

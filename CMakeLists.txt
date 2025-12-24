@@ -61,6 +61,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 file(GLOB_RECURSE APP_SOURCES "src/*.cpp")
 file(GLOB_RECURSE APP_HEADERS "include/*.h")
 
+# Remove QuarterOcctViewerTest.cpp from main application sources
+list(FILTER APP_SOURCES EXCLUDE REGEX ".*QuarterOcctViewerTest\\.cpp$")
+
 # Add executable
 add_executable(${PROJECT_NAME}
     ${APP_SOURCES}
@@ -186,6 +189,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${OCCT_DATA_EXCHANGE_LIBS}
     ${OCCT_ADDITIONAL_LIBS}
     
+    # DataProcess library
+    $<$<BOOL:${BUILD_DATAPROCESS_LIBRARY}>:DataProcess>
+    
     # Qt libraries
     Qt6::Core
     Qt6::Gui
@@ -194,9 +200,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Concurrent
 )
 
-# -----------------------------------------------------------------------------
-# Step2Stl Library Configuration
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------# Step2Stl Library Configuration# -----------------------------------------------------------------------------
 
 # Option to build Step2Stl library
 option(BUILD_STEP2STL_LIBRARY "Build Step2Stl dynamic library" ON)
@@ -259,6 +263,67 @@ if(BUILD_STEP2STL_LIBRARY)
     install(FILES ${STEP2STL_HEADERS} DESTINATION include/Step2Stl)
 endif()
 
+# -----------------------------------------------------------------------------# DataProcess Library Configuration# -----------------------------------------------------------------------------
+
+# Option to build DataProcess library
+option(BUILD_DATAPROCESS_LIBRARY "Build DataProcess dynamic library" ON)
+
+if(BUILD_DATAPROCESS_LIBRARY)
+    # Collect DataProcess source files
+    file(GLOB_RECURSE DATAPROCESS_SOURCES "DataProcess/src/*.cpp")
+    file(GLOB_RECURSE DATAPROCESS_HEADERS "DataProcess/include/*.h")
+    
+    # Create shared library target
+    add_library(DataProcess SHARED
+        ${DATAPROCESS_SOURCES}
+        ${DATAPROCESS_HEADERS}
+    )
+    
+    # Set DataProcess library properties
+    set_target_properties(DataProcess PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+        PREFIX ""
+        DEFINE_SYMBOL DATAPROCESS_EXPORTS
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+    )
+    
+    # Set include directories for DataProcess
+    target_include_directories(DataProcess PRIVATE
+        ${OCCT_INCLUDE_PATH}
+    )
+    
+    # Set public include directory for DataProcess
+    target_include_directories(DataProcess PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/DataProcess/include>
+        $<INSTALL_INTERFACE:include/DataProcess>
+    )
+    
+    # Set link directories for DataProcess
+    target_link_directories(DataProcess PRIVATE
+        ${OCCT_LIB_PATH}
+    )
+    
+    # Link necessary OCCT libraries for DataProcess
+    target_link_libraries(DataProcess PRIVATE
+        ${OCCT_CORE_LIBS}
+        ${OCCT_DATA_EXCHANGE_LIBS}
+    )
+    
+    # Installation configuration for DataProcess
+    install(TARGETS DataProcess
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include
+    )
+    
+    # Install all headers including DataProcessGlobal.h
+    install(FILES ${DATAPROCESS_HEADERS} DESTINATION include/DataProcess)
+endif()
+
 # -----------------------------------------------------------------------------
 # Installation Configuration
 # -----------------------------------------------------------------------------
@@ -278,6 +343,7 @@ message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Output Directory: ${OUTPUT_DIR}")
 message(STATUS "Build Step2Stl Library: ${BUILD_STEP2STL_LIBRARY}")
+message(STATUS "Build DataProcess Library: ${BUILD_DATAPROCESS_LIBRARY}")
 message(STATUS "Enable Console Output: ${ENABLE_CONSOLE_OUTPUT}")
 message(STATUS "")
 

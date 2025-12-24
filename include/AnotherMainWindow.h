@@ -29,8 +29,9 @@ private slots:
     void openIGESFile();
     void zoomAll();
     void onFileLoaded(bool success, const QString& message);
-    void onIGESFileLoaded(bool success, const QString& message);
+	void onIGESFileLoaded(bool success, const QString& message);
     void exportSTLFile();
+	void exportIGESSTLFile();
     void loadStepWithStatistics();
     void performMeshAbilityAnalysis();
     void performCurveAnalysis();
@@ -45,11 +46,19 @@ private slots:
     void saveAllCurvesToSingleBREP();
     void saveCurvesAsPoints();
     void exportSTLWithCurvePoints();
+    // IGES Analysis slots
+    void importIGESCurveToFile();
+    void saveAllIGESCurvesToSingleBREP();
+    void exportSTLWithIGESCurvePoints();
+    
+    // DataProcess test slot
+    void testDataProcessLibrary();
 
 private:
     void setupUI();
     void setupConnections();
 
+private:
     OccWidget* m_occWidget;
     STEPLoader* m_stepLoader;
     IGESLoader* m_igesLoader;
@@ -65,10 +74,12 @@ private:
     QMenu* m_fileMenu;
     QMenu* m_viewMenu;
     QMenu* m_analysisMenu;
+    QMenu* m_igesAnalysisMenu;
     QAction* m_openAction;
     QAction* m_openIGESAction;
     QAction* m_zoomAllAction;
     QAction* m_exportSTLAction;
+	QAction* m_exportIGESSTLAction;
     QAction* m_loadStepAction;
     QAction* m_meshAbilityAnalysisAction;
     QAction* m_curveAnalysisAction;
@@ -83,4 +94,9 @@ private:
     QAction* m_saveAllCurvesToSingleBREPAction;
     QAction* m_saveCurvesAsPointsAction;
     QAction* m_exportSTLWithCurvePointsAction;
+    // IGES Analysis actions
+    QAction* m_importIGESCurveToFileAction;
+    QAction* m_saveAllIGESCurvesToSingleBREPAction;
+    QAction* m_exportSTLWithIGESCurvePointsAction;
+    QAction* m_dataProcessTestAction;
 };

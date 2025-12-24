@@ -12,6 +12,7 @@
 #include "TopologyExplorer.h"
 #include "importCurveToFile.h"
 #include "STLExportWithCurvePoints.h"
+#include "DataProcess.h"
 
 #include <QtConcurrent>
 #include <QThreadPool>
@@ -55,10 +56,12 @@ AnotherMainWindow::AnotherMainWindow(QWidget* parent)
     , m_fileMenu(nullptr)
     , m_viewMenu(nullptr)
     , m_analysisMenu(nullptr)
+    , m_igesAnalysisMenu(nullptr)
     , m_openAction(nullptr)
     , m_openIGESAction(nullptr)
     , m_zoomAllAction(nullptr)
     , m_exportSTLAction(nullptr)
+	, m_exportIGESSTLAction(nullptr)
     , m_loadStepAction(nullptr)
     , m_meshAbilityAnalysisAction(nullptr)
     , m_curveAnalysisAction(nullptr)
@@ -69,6 +72,9 @@ AnotherMainWindow::AnotherMainWindow(QWidget* parent)
     , m_stlMultiLevelExportAction(nullptr)
     , m_compoundCurveExtractAction(nullptr)
     , m_topologyExplorationAction(nullptr)
+    , m_importIGESCurveToFileAction(nullptr)
+    , m_saveAllIGESCurvesToSingleBREPAction(nullptr)
+    , m_exportSTLWithIGESCurvePointsAction(nullptr)
 {
     setupUI();
     setupConnections();
@@ -124,6 +130,8 @@ void AnotherMainWindow::setupUI()
     m_exportSTLAction = m_fileMenu->addAction("Export STL");
     m_exportSTLAction->setShortcut(tr("Ctrl+E"));
     
+	m_exportIGESSTLAction = m_fileMenu->addAction("Export IGES STL");
+	m_exportIGESSTLAction->setShortcut(tr("Ctrl+G"));
     // Add Meshability Analysis action
     m_meshAbilityAnalysisAction = m_fileMenu->addAction("Meshability Analysis");
     m_meshAbilityAnalysisAction->setShortcut(tr("Ctrl+M"));
@@ -176,6 +184,25 @@ void AnotherMainWindow::setupUI()
     m_exportSTLWithCurvePointsAction = m_analysisMenu->addAction("Export STL with Curve Points");
     m_exportSTLWithCurvePointsAction->setShortcut(tr("Ctrl+W"));
 
+    // Add DataProcess test action
+    m_dataProcessTestAction = m_analysisMenu->addAction("Test DataProcess Library");
+    m_dataProcessTestAction->setShortcut(tr("Ctrl+D"));
+
+    // Add IGESAnalysis menu
+    m_igesAnalysisMenu = m_menuBar->addMenu("IGESAnalysis");
+    
+    // Add Import IGES Curve to File action
+    m_importIGESCurveToFileAction = m_igesAnalysisMenu->addAction("Import IGES Curve to File");
+    m_importIGESCurveToFileAction->setShortcut(tr("Ctrl+I"));
+    
+    // Add Save All IGES Curves to Single BREP action
+    m_saveAllIGESCurvesToSingleBREPAction = m_igesAnalysisMenu->addAction("Save All IGES Curves to Single BREP");
+    m_saveAllIGESCurvesToSingleBREPAction->setShortcut(tr("Ctrl+A"));
+    
+    // Add Export STL with IGES Curve Points action
+    m_exportSTLWithIGESCurvePointsAction = m_igesAnalysisMenu->addAction("Export STL with IGES Curve Points");
+    m_exportSTLWithIGESCurvePointsAction->setShortcut(tr("Ctrl+P"));
+
     m_occWidget = new OccWidget(this);
     m_mainLayout->addWidget(m_occWidget);
 
@@ -191,6 +218,7 @@ void AnotherMainWindow::setupConnections()
     connect(m_openIGESAction, &QAction::triggered, this, &AnotherMainWindow::openIGESFile);
     connect(m_loadStepAction, &QAction::triggered, this, &AnotherMainWindow::loadStepWithStatistics);
     connect(m_exportSTLAction, &QAction::triggered, this, &AnotherMainWindow::exportSTLFile);
+	connect(m_exportIGESSTLAction, &QAction::triggered, this, &AnotherMainWindow::exportIGESSTLFile);
     connect(m_meshAbilityAnalysisAction, &QAction::triggered, this, &AnotherMainWindow::performMeshAbilityAnalysis);
     connect(m_zoomAllAction, &QAction::triggered, this, &AnotherMainWindow::zoomAll);
     connect(m_curveAnalysisAction, &QAction::triggered, this, &AnotherMainWindow::performCurveAnalysis);
@@ -205,8 +233,16 @@ void AnotherMainWindow::setupConnections()
     connect(m_saveAllCurvesToSingleBREPAction, &QAction::triggered, this, &AnotherMainWindow::saveAllCurvesToSingleBREP);
     connect(m_saveCurvesAsPointsAction, &QAction::triggered, this, &AnotherMainWindow::saveCurvesAsPoints);
     connect(m_exportSTLWithCurvePointsAction, &QAction::triggered, this, &AnotherMainWindow::exportSTLWithCurvePoints);
-    connect(m_stepLoader, &STEPLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
-    connect(m_igesLoader, &IGESLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
+    //connect(m_stepLoader, &STEPLoader::fileLoaded, this, &AnotherMainWindow::onFileLoaded);
+    //connect(m_igesLoader, &IGESLoader::fileLoaded, this, &AnotherMainWindow::onIGESFileLoaded);
+    
+    // Connect IGESAnalysis menu actions
+    connect(m_importIGESCurveToFileAction, &QAction::triggered, this, &AnotherMainWindow::importIGESCurveToFile);
+    connect(m_saveAllIGESCurvesToSingleBREPAction, &QAction::triggered, this, &AnotherMainWindow::saveAllIGESCurvesToSingleBREP);
+    connect(m_exportSTLWithIGESCurvePointsAction, &QAction::triggered, this, &AnotherMainWindow::exportSTLWithIGESCurvePoints);
+    
+    // Connect DataProcess test action
+    connect(m_dataProcessTestAction, &QAction::triggered, this, &AnotherMainWindow::testDataProcessLibrary);
 }
 
 void AnotherMainWindow::openSTEPFile()
@@ -394,6 +430,89 @@ void AnotherMainWindow::exportSTLFile()
                 }
             }, Qt::QueuedConnection);
         });
+    }
+}
+
+void AnotherMainWindow::exportIGESSTLFile()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_igesLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Export STL", "No shapes loaded to export.");
+        return;
+    }
+
+    // Show file save dialog
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Export STL File",
+        "",
+        "STL Files (*.stl)"
+    );
+
+    if (!filePath.isEmpty()) {
+        m_progressBar->setVisible(true);
+        m_infoLabel->setText("Exporting STL file...");
+
+        // Export in a separate thread to avoid UI blocking
+        QThreadPool::globalInstance()->start([this, filePath, shapes]() {
+            bool success = true;
+            QString message = "Export successful";
+
+            try {
+                // Create STL writer
+                StlAPI_Writer writer;
+                writer.ASCIIMode() = false; // Use binary format
+
+                // For each shape, create mesh and export
+                for (size_t i = 0; i < shapes.size(); ++i) {
+                    const TopoDS_Shape& shape = shapes[i];
+
+                    // Create mesh for the shape
+                    BRepMesh_IncrementalMesh meshBuilder(shape, 0.00001); // 0.1mm mesh tolerance
+                    meshBuilder.Perform();
+
+                    if (!meshBuilder.IsDone()) {
+                        success = false;
+                        message = "Mesh generation failed";
+                        break;
+                    }
+
+                    // Export the shape
+                    if (shapes.size() == 1) {
+                        // Single shape, export directly
+                        writer.Write(shape, filePath.toStdString().c_str());
+                    }
+                    else {
+                        // Multiple shapes, export each to separate file
+                        QString shapeFilePath = filePath;
+                        shapeFilePath.replace(".stl", QString("_shape%1.stl").arg(i + 1));
+                        writer.Write(shape, shapeFilePath.toStdString().c_str());
+                    }
+                }
+            }
+            catch (const Standard_Failure& e) {
+                success = false;
+                message = QString("Export failed: %1").arg(e.GetMessageString());
+            }
+            catch (...) {
+                success = false;
+                message = "Export failed: Unknown error";
+            }
+
+            // Update UI in main thread
+            QMetaObject::invokeMethod(this, [this, success, message]() {
+                m_progressBar->setVisible(false);
+                m_infoLabel->setText(message);
+
+                if (success) {
+                    QMessageBox::information(this, "Export STL", "STL file exported successfully.");
+                }
+                else {
+                    QMessageBox::critical(this, "Export STL", message);
+                }
+                }, Qt::QueuedConnection);
+            });
     }
 }
 
@@ -1749,4 +1868,298 @@ void AnotherMainWindow::exportSTLWithCurvePoints()
                 QString::fromStdString(message));
         }, Qt::QueuedConnection);
     });
+}
+
+// IGESAnalysis menu actions implementation
+void AnotherMainWindow::importIGESCurveToFile()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_igesLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Import IGES Curve to File", "No shapes loaded to process. Please open an IGES file first.");
+        return;
+    }
+
+    // Ask user to select output directory
+    QString outputDir = QFileDialog::getExistingDirectory(
+        this,
+        "Select Output Directory",
+        ".",
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+
+    if (outputDir.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Processing and saving IGES curves...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, outputDir]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+
+        try {
+            // Create importCurveToFile instance
+            importCurveToFile curveImporter;
+            
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Process and save curves
+            success = curveImporter.processAndSaveCurves(combinedShape, outputDir.toStdString());
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = curveImporter.getCurveTypeStats();
+                message = "Successfully processed and saved IGES curves to BREP files.\n";
+                message += "Output directory: " + outputDir.toStdString() + "\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+            } else {
+                message = "Failed to process and save IGES curves.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during IGES curve processing.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "IGES curve export completed" : "IGES curve export failed");
+            
+            QMessageBox::information(this, "Import IGES Curve to File", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::saveAllIGESCurvesToSingleBREP()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_igesLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Save All IGES Curves to Single BREP", "No shapes loaded to process. Please open an IGES file first.");
+        return;
+    }
+
+    // Ask user to select output file
+    QString filePath = QFileDialog::getSaveFileName(
+        this,
+        "Save All IGES Curves to BREP",
+        "all_iges_curves.brep",
+        "BREP Files (*.brep)"
+    );
+
+    if (filePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Processing and saving all IGES curves to single BREP...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, filePath]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+
+        try {
+            // Create importCurveToFile instance
+            importCurveToFile curveImporter;
+            
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Process and save all curves to single BREP file
+            success = curveImporter.processAndSaveAllCurvesToSingleBREP(combinedShape, filePath.toStdString());
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = curveImporter.getCurveTypeStats();
+                message = "Successfully processed and saved all IGES curves to single BREP file.\n";
+                message += "Output file: " + filePath.toStdString() + "\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+            } else {
+                message = "Failed to process and save IGES curves.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during IGES curve processing.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message, filePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "IGES curve export completed" : "IGES curve export failed");
+            
+            QMessageBox::information(this, "Save All IGES Curves to Single BREP", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::exportSTLWithIGESCurvePoints()
+{
+    // Check if there are any shapes loaded
+    const auto& shapes = m_igesLoader->getShapes();
+    if (shapes.empty()) {
+        QMessageBox::information(this, "Export STL with IGES Curve Points", "No shapes loaded to process. Please open an IGES file first.");
+        return;
+    }
+
+    // Ask user to select STL output file
+    QString stlFilePath = QFileDialog::getSaveFileName(
+        this,
+        "Save STL File",
+        "exported_iges_model.stl",
+        "STL Files (*.stl)"
+    );
+
+    if (stlFilePath.isEmpty()) {
+        return; // User canceled
+    }
+
+    m_progressBar->setVisible(true);
+    m_infoLabel->setText("Exporting STL and extracting IGES curve points...");
+
+    // Perform processing in a separate thread to avoid UI blocking
+    QThreadPool::globalInstance()->start([this, shapes, stlFilePath]() {
+        bool success = false;
+        std::string message;
+        std::map<std::string, int> curveStats;
+        std::vector<CurvePointSet> curvePointSets;
+
+        try {
+            // Combine all shapes into a single compound shape
+            BRep_Builder builder;
+            TopoDS_Compound combinedShape;
+            builder.MakeCompound(combinedShape);
+            
+            for (const auto& shape : shapes) {
+                builder.Add(combinedShape, shape);
+            }
+            
+            // Create STLExportWithCurvePoints instance
+            STLExportWithCurvePoints exporter;
+            
+            // Set export parameters
+            exporter.setSTLDeflection(0.01);
+            exporter.setCurveDeflection(1e-3);
+            
+            // Perform export and curve extraction
+            success = exporter.exportSTLAndExtractCurves(combinedShape, 
+                                                     stlFilePath.toStdString(), 
+                                                     curvePointSets);
+            
+            if (success) {
+                // Get curve statistics
+                curveStats = exporter.getCurveTypeStats();
+                message = "Successfully exported STL and extracted IGES curve points.\n";
+                message += "STL file: " + stlFilePath.toStdString() + "\n";
+                message += "Extracted " + std::to_string(curvePointSets.size()) + " curve point sets.\n\n";
+                message += "Curve Type Statistics:\n";
+                
+                for (const auto& pair : curveStats) {
+                    message += pair.first + ": " + std::to_string(pair.second) + "\n";
+                }
+                
+                // Calculate total points count
+                int totalPoints = 0;
+                for (const auto& curveSet : curvePointSets) {
+                    totalPoints += curveSet.points.size();
+                }
+                message += "\nTotal points: " + std::to_string(totalPoints) + "\n";
+                
+                // Optionally, you can process the curvePointSets here
+                // For example, save them to a file if needed
+                // Or use them for visualization
+            } else {
+                message = "Failed to export STL and extract IGES curve points.\n";
+            }
+        } catch (const Standard_Failure& e) {
+            message = "OCCT Exception: " + std::string(e.GetMessageString()) + "\n";
+        } catch (const std::exception& e) {
+            message = "Exception: " + std::string(e.what()) + "\n";
+        } catch (...) {
+            message = "Unknown error occurred during export and IGES curve extraction.\n";
+        }
+
+        // Update UI in main thread
+        QMetaObject::invokeMethod(this, [this, success, message, stlFilePath]() {
+            m_progressBar->setVisible(false);
+            m_infoLabel->setText(success ? "STL export with IGES curve points completed" : "STL export with IGES curve points failed");
+            
+            QMessageBox::information(this, "Export STL with IGES Curve Points", 
+                QString::fromStdString(message));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AnotherMainWindow::testDataProcessLibrary()
+{
+    try {
+        m_progressBar->setVisible(true);
+        m_infoLabel->setText("Testing DataProcess Library...");
+
+        // Create DataProcess instance
+        DataProcess dataProcess;
+        
+        // Show information about the test
+        QString infoMessage = "DataProcess Library Test\n\n";
+        infoMessage += "This test demonstrates that the DataProcess library has been successfully linked and can be called from the main application.\n\n";
+        infoMessage += "The DataProcess library provides functionality to convert:\n";
+        infoMessage += "- STEP files to STL format\n";
+        infoMessage += "- IGES files to STL format\n\n";
+        infoMessage += "Key features:\n";
+        infoMessage += "- Adjustable mesh deflection tolerance\n";
+        infoMessage += "- Support for ASCII and binary STL formats\n";
+        infoMessage += "- Comprehensive error handling\n";
+        infoMessage += "- Easy-to-use API\n\n";
+        infoMessage += "Library status: Successfully initialized!";
+
+        QMessageBox::information(this, "DataProcess Library Test", infoMessage);
+        
+        m_progressBar->setVisible(false);
+        m_infoLabel->setText("DataProcess Library test completed");
+        
+    } catch (const std::exception& e) {
+        m_progressBar->setVisible(false);
+        m_infoLabel->setText("DataProcess Library test failed");
+        QMessageBox::critical(this, "DataProcess Library Test", 
+            QString("Exception occurred: %1").arg(e.what()));
+    } catch (...) {
+        m_progressBar->setVisible(false);
+        m_infoLabel->setText("DataProcess Library test failed");
+        QMessageBox::critical(this, "DataProcess Library Test", 
+            "Unknown exception occurred during test");
+    }
 }
