@@ -105,7 +105,9 @@ protected:
      * @param shape The OCCT shape to convert
      * @return Converted Coin3D node, or nullptr if conversion failed
      */
-    SoNode* convertOcctShapeToCoin3D(const TopoDS_Shape& shape);
+    SoNode* convertOcctShapeToCoin3D(TopoDS_Shape shape);
+
+	SoNode* convertShapeRecursive(TopoDS_Shape shape,double deviation, double angularDeflection);
     
     /**
      * @brief Read a STEP file and return the shape
