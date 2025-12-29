@@ -12,6 +12,8 @@
 
 #include "AnotherMainWindow.h"
 #include "QuarterOcctViewer.h"
+#include "CubeWindow.h"
+
 using namespace std;
 
 int main(int argc, char** argv)
@@ -38,6 +40,7 @@ int main(int argc, char** argv)
          //SoInteraction::init();
          //SoFCDB::init();
          QuarterOcctViewer w;
+         //CubeWindow w;
          w.show();
     
          // Enter application event loop

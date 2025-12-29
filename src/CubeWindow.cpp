@@ -13,12 +13,12 @@
 #include <Inventor/nodes/SoTransform.h>
 #include <Inventor/nodes/SoCoordinate3.h>
 #include <Inventor/nodes/SoFaceSet.h>
+
+#include <Quarter/eventhandlers/DragDropHandler.h>
 #include <Quarter/QuarterWidget.h>
 
 CubeWindow::CubeWindow(QWidget *parent)
     : QMainWindow(parent),
-      m_centralWidget(nullptr),
-      m_mainLayout(nullptr),
       m_quarterWidget(nullptr),
       m_root(nullptr),
       m_modelRoot(nullptr)
@@ -35,16 +35,14 @@ CubeWindow::~CubeWindow()
 
 void CubeWindow::setupUI()
 {
-    // Create central widget and main layout
-    m_centralWidget = new QWidget(this);
-    setCentralWidget(m_centralWidget);
-    m_mainLayout = new QVBoxLayout(m_centralWidget);
-    m_mainLayout->setContentsMargins(0, 0, 0, 0);
-    m_mainLayout->setSpacing(0);
-    
+
     // Create Quarter widget for 3D rendering
-    m_quarterWidget = new SIM::Coin3D::Quarter::QuarterWidget(m_centralWidget);
-    m_mainLayout->addWidget(m_quarterWidget);
+    m_quarterWidget = new SIM::Coin3D::Quarter::QuarterWidget(this);
+    setCentralWidget(m_quarterWidget);
+
+    this->m_quarterWidget->installEventFilter(new SIM::Coin3D::Quarter::DragDropHandler(this->m_quarterWidget));
+    //set default navigation mode file
+    this->m_quarterWidget->setNavigationModeFile();
     
     // Initialize Coin3D scene
     m_root = new SoSeparator;
@@ -86,6 +84,8 @@ void CubeWindow::setupUI()
     // Set window properties
     setWindowTitle("Cube Viewer");
     resize(800, 600);
+
+    this->setMouseTracking(true);
 }
 
 void CubeWindow::createCube()

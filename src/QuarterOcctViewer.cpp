@@ -32,6 +32,7 @@
 #include <Inventor/actions/SoWriteAction.h>
 #include <Inventor/SoInteraction.h>
 #include <Quarter/QuarterWidget.h>
+#include <Quarter/eventhandlers/DragDropHandler.h>
 
 // Use Quarter namespace for convenience
 using namespace SIM::Coin3D::Quarter;
@@ -110,6 +111,10 @@ void QuarterOcctViewer::setupUI()
     // Create Quarter widget for 3D rendering
     m_quarterWidget = new SIM::Coin3D::Quarter::QuarterWidget(m_centralWidget);
     m_mainLayout->addWidget(m_quarterWidget);
+
+    this->m_quarterWidget->installEventFilter(new SIM::Coin3D::Quarter::DragDropHandler(this->m_quarterWidget));
+    //set default navigation mode file
+    this->m_quarterWidget->setNavigationModeFile();
     
     // Create control panel
     QWidget* controlPanel = new QWidget(m_centralWidget);
@@ -1110,6 +1115,7 @@ void QuarterOcctViewer::onAbout()
         "- Quarter\n" 
         "- Open CASCADE Technology (OCCT)");
 }
+
 
 void QuarterOcctViewer::wheelEvent(QWheelEvent* event)
 {
