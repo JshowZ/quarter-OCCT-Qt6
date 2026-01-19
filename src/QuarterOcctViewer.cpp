@@ -12,6 +12,7 @@
 #include <QSlider>
 #include <QPushButton>
 #include <QWheelEvent>
+#include <QMouseEvent>
 
 // Coin3D and Quarter headers
 #include <Inventor/nodes/SoSeparator.h>
@@ -29,8 +30,13 @@
 #include <Inventor/nodes/SoLineSet.h>
 #include <Inventor/nodes/SoIndexedLineSet.h>
 #include <Inventor/nodes/SoPointSet.h>
+#include <Inventor/nodes/SoShape.h>
 #include <Inventor/actions/SoWriteAction.h>
+#include <Inventor/actions/SoRayPickAction.h>
+#include <Inventor/SbViewportRegion.h>
+#include <Inventor/SoPath.h>
 #include <Inventor/SoInteraction.h>
+#include <Inventor/SoPickedPoint.h>
 #include <Quarter/QuarterWidget.h>
 #include <Quarter/eventhandlers/DragDropHandler.h>
 
@@ -85,8 +91,11 @@ QuarterOcctViewer::QuarterOcctViewer(QWidget *parent)
       m_quarterWidget(nullptr),
       m_root(nullptr),
       m_modelRoot(nullptr),
+      m_camera(nullptr),
       m_zoomSlider(nullptr),
-      m_wireframeMode(false)
+      m_wireframeMode(false),
+      m_pickRoot(nullptr),
+      m_pickEnabled(true)
 {
     setupUI();
 }
@@ -115,6 +124,9 @@ void QuarterOcctViewer::setupUI()
     this->m_quarterWidget->installEventFilter(new SIM::Coin3D::Quarter::DragDropHandler(this->m_quarterWidget));
     //set default navigation mode file
     this->m_quarterWidget->setNavigationModeFile();
+    
+    // Install event filter to capture mouse events on QuarterWidget
+    m_quarterWidget->installEventFilter(this);
     
     // Create control panel
     QWidget* controlPanel = new QWidget(m_centralWidget);
@@ -230,19 +242,23 @@ void QuarterOcctViewer::setupUI()
     material->diffuseColor.setValue(0.8, 0.8, 0.8);
     m_root->addChild(material);
     
+    // Add pick root separator for picking functionality
+    m_pickRoot = new SoSeparator;
+    m_root->addChild(m_pickRoot);
+    
     // Add model root separator
     m_modelRoot = new SoSeparator;
-    m_root->addChild(m_modelRoot);
+    m_pickRoot->addChild(m_modelRoot);
     
     // Set the scene graph to Quarter widget
     m_quarterWidget->setSceneGraph(m_root);
     
     // Set default background color to white
-        setBackgroundColor(1.0, 1.0, 1.0);
-        
-        // Set window properties
-        setWindowTitle("Quarter OCCT Viewer");
-        resize(800, 600);
+	setBackgroundColor(1.0, 1.0, 1.0);
+
+	// Set window properties
+	setWindowTitle("Quarter OCCT Viewer");
+	resize(800, 600);
 }
 
 SoNode* QuarterOcctViewer::convertOcctShapeToCoin3D(TopoDS_Shape shape)
@@ -1136,4 +1152,107 @@ void QuarterOcctViewer::wheelEvent(QWheelEvent* event)
     
     // Accept the event
     event->accept();
+}
+
+void QuarterOcctViewer::mousePressEvent(QMouseEvent* event)
+{
+    // Let the event propagate to child widgets first
+    QMainWindow::mousePressEvent(event);
+    
+    // Check if the event was accepted by any child widget
+    if (event->isAccepted()) {
+        return;
+    }
+    
+    // If left mouse button is pressed, perform picking
+    if (event->button() == Qt::LeftButton && m_pickEnabled)
+    {
+        // Get mouse position relative to QuarterWidget
+        QPoint pos = m_quarterWidget->mapFrom(this, event->pos());
+        
+        // Check if the mouse is within the QuarterWidget bounds
+        if (m_quarterWidget->rect().contains(pos)) {
+            // Convert to viewport coordinates (Y is flipped in Coin3D)
+            int x = pos.x();
+            int y = m_quarterWidget->height() - pos.y();
+            
+            // Perform picking
+            performPick(x, y);
+            
+            // Accept the event to indicate we've handled it
+            event->accept();
+        }
+    }
+}
+
+bool QuarterOcctViewer::eventFilter(QObject* obj, QEvent* event)
+{
+    // Check if the event is coming from QuarterWidget and is a mouse press event
+    if (obj == m_quarterWidget && event->type() == QEvent::MouseButtonPress && m_pickEnabled)
+    {
+        QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton)
+        {
+            // Get mouse position in QuarterWidget coordinates
+            QPoint pos = mouseEvent->pos();
+            
+            // Convert to viewport coordinates (Y is flipped in Coin3D)
+            int x = pos.x();
+            int y = m_quarterWidget->height() - pos.y();
+            
+            // Perform picking
+            performPick(x, y);
+            
+            // Accept the event to indicate we've handled it
+            event->accept();
+            return true;
+        }
+    }
+    
+    // Let the event propagate to other handlers if we didn't handle it
+    return QMainWindow::eventFilter(obj, event);
+}
+
+void QuarterOcctViewer::performPick(int x, int y)
+{
+    // Create viewport region from widget size
+    SbViewportRegion viewport(m_quarterWidget->size().width(), m_quarterWidget->size().height());
+    // Create ray pick action for the current viewport
+    SoRayPickAction pickAction(viewport);
+    pickAction.setPoint(SbVec2s(x, y));
+    
+    // Set up pick action parameters for better picking accuracy
+    pickAction.setRadius(5.0f); // Set pick radius for easier picking
+    pickAction.setPickAll(false); // Only pick the nearest object
+    
+    // Apply the pick action to the scene graph
+    pickAction.apply(m_pickRoot);
+    
+    // Get the picked path (if any)
+    SoPickedPoint* pickedPoint = pickAction.getPickedPoint();
+    if (pickedPoint)
+    {
+        SoPath* pickedPath = pickedPoint->getPath();
+        if (pickedPath)
+        {
+            // Get the picked shape node
+            SoNode* pickedNode = pickedPath->getTail();
+            if (pickedNode && pickedNode->isOfType(SoShape::getClassTypeId()))
+            {
+                // Display information about the picked object
+                QString message = QString("Picked shape: %1\n").arg(pickedNode->getTypeId().getName().getString());
+                
+                // Get the intersection point in world coordinates
+                SbVec3f intersection = pickedPoint->getPoint();
+                message += QString("Intersection point: (%.3f, %.3f, %.3f)\n").arg(intersection[0]).arg(intersection[1]).arg(intersection[2]);
+                
+                // Get the normal at the intersection point
+                SbVec3f normal = pickedPoint->getNormal();
+                message += QString("Normal vector: (%.3f, %.3f, %.3f)").arg(normal[0]).arg(normal[1]).arg(normal[2]);
+                
+                // Show the picked information
+                QMessageBox::information(this, "Object Picked", message);
+            }
+        }
+    }
 }

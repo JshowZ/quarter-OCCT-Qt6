@@ -2,6 +2,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QMessageBox>
+#include <QMouseEvent>
 
 // Coin3D headers
 #include <Inventor/nodes/SoSeparator.h>
@@ -13,6 +14,12 @@
 #include <Inventor/nodes/SoTransform.h>
 #include <Inventor/nodes/SoCoordinate3.h>
 #include <Inventor/nodes/SoFaceSet.h>
+#include <Inventor/nodes/SoShape.h>
+#include <Inventor/actions/SoRayPickAction.h>
+#include <Inventor/SbViewportRegion.h>
+#include <Inventor/SoPath.h>
+#include <Inventor/SoPickedPoint.h>
+#include <Inventor/SoInteraction.h>
 
 #include <Quarter/eventhandlers/DragDropHandler.h>
 #include <Quarter/QuarterWidget.h>
@@ -21,7 +28,10 @@ CubeWindow::CubeWindow(QWidget *parent)
     : QMainWindow(parent),
       m_quarterWidget(nullptr),
       m_root(nullptr),
-      m_modelRoot(nullptr)
+      m_modelRoot(nullptr),
+      m_camera(nullptr),
+      m_pickRoot(nullptr),
+      m_pickEnabled(true)
 {
     setupUI();
 }
@@ -49,12 +59,12 @@ void CubeWindow::setupUI()
     m_root->ref();
     
     // Add camera
-    SoPerspectiveCamera* camera = new SoPerspectiveCamera;
-    camera->position.setValue(0, 0, 10);
-    camera->heightAngle.setValue(M_PI / 4.0);
-    camera->nearDistance.setValue(0.1);
-    camera->farDistance.setValue(1000.0);
-    m_root->addChild(camera);
+    m_camera = new SoPerspectiveCamera;
+    m_camera->position.setValue(0, 0, 10);
+    m_camera->heightAngle.setValue(M_PI / 4.0);
+    m_camera->nearDistance.setValue(0.1);
+    m_camera->farDistance.setValue(1000.0);
+    m_root->addChild(m_camera);
     
     // Add light
     SoDirectionalLight* light = new SoDirectionalLight;
@@ -71,9 +81,13 @@ void CubeWindow::setupUI()
     material->diffuseColor.setValue(0.8, 0.8, 0.8);
     m_root->addChild(material);
     
+    // Add pick root separator for picking functionality
+    m_pickRoot = new SoSeparator;
+    m_root->addChild(m_pickRoot);
+    
     // Add model root
     m_modelRoot = new SoSeparator;
-    m_root->addChild(m_modelRoot);
+    m_pickRoot->addChild(m_modelRoot);
     
     // Create the cube
     createCube();
@@ -137,4 +151,69 @@ void CubeWindow::createCube()
     cubeSep->addChild(faceSet);
     
     m_modelRoot->addChild(cubeSep);
+}
+
+void CubeWindow::mousePressEvent(QMouseEvent* event)
+{
+    // If left mouse button is pressed, perform picking
+    if (event->button() == Qt::LeftButton && m_pickEnabled)
+    {
+        // Get mouse position in widget coordinates
+        QPoint pos = event->pos();
+        
+        // Convert to viewport coordinates (Y is flipped in Coin3D)
+        int x = pos.x();
+        int y = m_quarterWidget->size().height() - pos.y();
+        
+        // Perform picking
+        performPick(x, y);
+    }
+    
+    // Call the base class implementation for other mouse events
+    QMainWindow::mousePressEvent(event);
+}
+
+void CubeWindow::performPick(int x, int y)
+{
+    // Create viewport region from widget size
+    SbViewportRegion viewport(m_quarterWidget->size().width(), m_quarterWidget->size().height());
+    
+    // Create ray pick action for the current viewport
+    SoRayPickAction pickAction(viewport);
+    pickAction.setPoint(SbVec2s(x, y));
+    
+    // Set up pick action parameters for better picking accuracy
+    pickAction.setRadius(5.0f); // Set pick radius for easier picking
+    pickAction.setPickAll(false); // Only pick the nearest object
+    
+    // Apply the pick action to the scene graph
+    pickAction.apply(m_pickRoot);
+    
+    // Get the picked path (if any)
+    SoPickedPoint* pickedPoint = pickAction.getPickedPoint();
+    if (pickedPoint)
+    {
+        SoPath* pickedPath = pickedPoint->getPath();
+        if (pickedPath)
+        {
+            // Get the picked shape node
+            SoNode* pickedNode = pickedPath->getTail();
+            if (pickedNode && pickedNode->isOfType(SoShape::getClassTypeId()))
+            {
+                // Display information about the picked object
+                QString message = QString("Picked shape: %1\n").arg(pickedNode->getTypeId().getName().getString());
+                
+                // Get the intersection point in world coordinates
+                SbVec3f intersection = pickedPoint->getPoint();
+                message += QString("Intersection point: (%.3f, %.3f, %.3f)\n").arg(intersection[0]).arg(intersection[1]).arg(intersection[2]);
+                
+                // Get the normal at the intersection point
+                SbVec3f normal = pickedPoint->getNormal();
+                message += QString("Normal vector: (%.3f, %.3f, %.3f)").arg(normal[0]).arg(normal[1]).arg(normal[2]);
+                
+                // Show the picked information
+                QMessageBox::information(this, "Object Picked", message);
+            }
+        }
+    }
 }

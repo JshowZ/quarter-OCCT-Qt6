@@ -61,13 +61,65 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR})
 file(GLOB_RECURSE APP_SOURCES "src/*.cpp")
 file(GLOB_RECURSE APP_HEADERS "include/*.h")
 
-# Remove QuarterOcctViewerTest.cpp from main application sources
+# Remove QuarterOcctViewerTest.cpp and TestWindowMain.cpp from main application sources
 list(FILTER APP_SOURCES EXCLUDE REGEX ".*QuarterOcctViewerTest\\.cpp$")
+list(FILTER APP_SOURCES EXCLUDE REGEX ".*TestWindowMain\\.cpp$")
 
 # Add executable
 add_executable(${PROJECT_NAME}
     ${APP_SOURCES}
     ${APP_HEADERS}
+)
+
+# Add TestWindow executable
+add_executable(TestWindowMain
+    src/TestWindow.cpp
+    src/TestWindow.h
+    src/TestWindowMain.cpp
+)
+
+# Enable Qt automatic processing for TestWindowMain
+set_target_properties(TestWindowMain PROPERTIES
+    AUTOMOC ON
+    AUTOUIC ON
+    AUTORCC ON
+    WIN32_EXECUTABLE $<NOT:$<BOOL:${ENABLE_CONSOLE_OUTPUT}>>
+)
+
+# Set include directories for TestWindowMain
+target_include_directories(TestWindowMain PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${COIN3D_INCLUDE_PATH}
+    ${OCCT_INCLUDE_PATH}
+    ${QUARTER_INCLUDE_PATH}
+)
+
+# Set link directories for TestWindowMain
+target_link_directories(TestWindowMain PRIVATE
+    ${COIN3D_LIB_PATH}
+    ${OCCT_LIB_PATH}
+    ${QUARTER_LIB_PATH}
+)
+
+# Set compile definitions for TestWindowMain
+target_compile_definitions(TestWindowMain PRIVATE
+    COIN_DLL
+    QUARTER_DLL
+    $<$<BOOL:${ENABLE_CONSOLE_OUTPUT}>:ENABLE_CONSOLE_OUTPUT>
+)
+
+# Link libraries for TestWindowMain
+target_link_libraries(TestWindowMain PRIVATE
+    # Coin3D and Quarter libraries
+    Coin4
+    Quarter1
+    
+    # Qt libraries
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::OpenGLWidgets
+    Qt6::Concurrent
 )
 
 # Enable Qt automatic processing (moc, uic, rcc)

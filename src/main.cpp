@@ -13,6 +13,8 @@
 #include "AnotherMainWindow.h"
 #include "QuarterOcctViewer.h"
 #include "CubeWindow.h"
+#include "TextOnCylinderForm.h"
+#include "pickDemoWidget.h"
 
 using namespace std;
 
@@ -37,10 +39,14 @@ int main(int argc, char** argv)
          // Create and show main window
          SoDB::init();
          SIM::Coin3D::Quarter::Quarter::init();
-         //SoInteraction::init();
+         SoInteraction::init();
          //SoFCDB::init();
-         QuarterOcctViewer w;
+         //QuarterOcctViewer w;
          //CubeWindow w;
+         //TextOnCylinderForm w;
+         pickDemoWidget w;
+         w.setWindowTitle("Pick Demo Widget");
+         w.resize(800, 600);
          w.show();
     
          // Enter application event loop

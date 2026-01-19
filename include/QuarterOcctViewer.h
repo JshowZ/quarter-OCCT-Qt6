@@ -88,11 +88,7 @@ public:
      */
     void zoomAll();
     
-    /**
-     * @brief Handle mouse wheel events for zooming
-     * @param event Mouse wheel event
-     */
-    void wheelEvent(QWheelEvent* event) override;
+
     
 protected:
     /**
@@ -124,6 +120,33 @@ protected:
      * @return true if successful, false otherwise
      */
     bool readIGESFile(const std::string& filePath, TopoDS_Shape& shape);
+    
+    /**
+     * @brief Event filter to capture mouse events from QuarterWidget
+     * @param obj The object that received the event
+     * @param event The event
+     * @return true if the event was handled, false otherwise
+     */
+    bool eventFilter(QObject* obj, QEvent* event) override;
+
+    /**
+ * @brief Handle mouse wheel events for zooming
+ * @param event Mouse wheel event
+ */
+    void wheelEvent(QWheelEvent* event) override;
+
+    /**
+     * @brief Handle mouse press events for picking
+     * @param event Mouse press event
+     */
+    void mousePressEvent(QMouseEvent* event) override;
+
+    /**
+     * @brief Perform picking operation at given mouse position
+     * @param x Mouse X position
+     * @param y Mouse Y position
+     */
+    void performPick(int x, int y);
     
 private slots:
     /**
@@ -157,4 +180,6 @@ private:
     SoPerspectiveCamera* m_camera;        // Camera for the scene
     QSlider* m_zoomSlider;                // Zoom control slider
     bool m_wireframeMode;                 // Wireframe mode flag
+    SoSeparator* m_pickRoot;              // Root for pickable objects
+    bool m_pickEnabled;                   // Flag to enable/disable picking
 };
