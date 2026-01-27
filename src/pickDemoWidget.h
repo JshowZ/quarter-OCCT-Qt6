@@ -64,6 +64,13 @@ private:
     int m_highlightedVertex;
     int m_highlightedEdge;
     int m_highlightedFace;
+    
+    // Preselection mode
+    enum PreselectionMode {
+        AUTO,
+        ON,
+        OFF
+    } m_preselectionMode;
 
     // Cube vertex, edge, and face data
     struct CubeData {
@@ -71,6 +78,13 @@ private:
         struct { int v1, v2; } edges[12];
         struct { int v1, v2, v3, v4; } faces[6];
     } m_cubeData;
+    
+    // Last highlighted view provider (for optimization)
+    void* m_lastHighlighted;
+    
+    // Highlight color configuration
+    SbColor m_highlightColor;
+    SbColor m_selectionColor;
 };
 
 #endif // PICKDEMOWIDGET_H

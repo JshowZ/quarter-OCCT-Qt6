@@ -27,8 +27,14 @@ pickDemoWidget::pickDemoWidget(QWidget *parent)
       m_faceHighlightMat(nullptr),
       m_highlightedVertex(-1),
       m_highlightedEdge(-1),
-      m_highlightedFace(-1)
+      m_highlightedFace(-1),
+      m_preselectionMode(AUTO),
+      m_lastHighlighted(nullptr)
 {
+    // Set default highlight colors
+    m_highlightColor.setValue(0.0f, 0.5f, 1.0f); // Light blue for preselection
+    m_selectionColor.setValue(0.0f, 1.0f, 0.0f); // Green for selection
+    
     setupUI();
     SoInteraction::init();
 }
@@ -203,15 +209,18 @@ void pickDemoWidget::createCube()
 
 void pickDemoWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    // Get mouse position in widget coordinates
-    QPoint pos = event->pos();
-    
-    // Convert to viewport coordinates (Y is flipped in Coin3D)
-    int x = pos.x();
-    int y = m_quarterWidget->size().height() - pos.y();
-    
-    // Perform picking
-    performPick(x, y);
+    // Only perform preselection if mode is AUTO or ON
+    if (m_preselectionMode == AUTO || m_preselectionMode == ON) {
+        // Get mouse position in widget coordinates
+        QPoint pos = event->pos();
+        
+        // Convert to viewport coordinates (Y is flipped in Coin3D)
+        int x = pos.x();
+        int y = m_quarterWidget->size().height() - pos.y();
+        
+        // Perform picking
+        performPick(x, y);
+    }
     
     // Call the base class implementation
     QWidget::mouseMoveEvent(event);
@@ -220,6 +229,10 @@ void pickDemoWidget::mouseMoveEvent(QMouseEvent* event)
 void pickDemoWidget::performPick(int x, int y)
 {
     // Reset highlighted elements
+    int oldHighlightedVertex = m_highlightedVertex;
+    int oldHighlightedEdge = m_highlightedEdge;
+    int oldHighlightedFace = m_highlightedFace;
+    
     m_highlightedVertex = -1;
     m_highlightedEdge = -1;
     m_highlightedFace = -1;
@@ -253,41 +266,24 @@ void pickDemoWidget::performPick(int x, int y)
                 m_highlightedFace = faceIndex;
             }
             
-            // Get number of vertices in the face
-            int numVertices = faceDetail->getNumVertices();
-            if (numVertices > 0) {
+            // For the cube, we know each face has 4 vertices
+            // So we can directly use the face index to get the vertices
+            if (m_highlightedFace >= 0 && m_highlightedFace < 6) {
                 // Check distance to each vertex of the face
                 SbVec3f intersection = pickedPoint->getPoint();
                 float minDist = 0.3f; // Threshold for vertex highlighting
                 
-                // Create array to store vertex indices
-                int vertexIndices[4] = { -1, -1, -1, -1 };
-                
-                // Get vertex indices one by one
-                for (int i = 0; i < numVertices && i < 4; i++) {
-                    vertexIndices[i] = faceDetail->getVertexIndex(i);
-                }
+                // Get the four vertices of the face from cube data
+                const auto& face = m_cubeData.faces[m_highlightedFace];
+                int faceVertices[4] = { face.v1, face.v2, face.v3, face.v4 };
                 
                 for (int i = 0; i < 4; i++) {
-                    if (vertexIndices[i] == -1) break;
-                    
-                    int vertexIndex = vertexIndices[i];
-                    // Map from 24-vertex index to 8-vertex index
-                    int cubeVertexIndex = -1;
-                    for (int j = 0; j < 8; j++) {
-                        if (m_cubeData.vertices[j] == m_coords->point[vertexIndex]) {
-                            cubeVertexIndex = j;
-                            break;
-                        }
-                    }
-                    
-                    if (cubeVertexIndex != -1) {
-                        float dist = (intersection - m_cubeData.vertices[cubeVertexIndex]).length();
-                        if (dist < minDist) {
-                            minDist = dist;
-                            m_highlightedVertex = cubeVertexIndex;
-                            m_highlightedFace = -1; // Prioritize vertex over face
-                        }
+                    int cubeVertexIndex = faceVertices[i];
+                    float dist = (intersection - m_cubeData.vertices[cubeVertexIndex]).length();
+                    if (dist < minDist) {
+                        minDist = dist;
+                        m_highlightedVertex = cubeVertexIndex;
+                        m_highlightedFace = -1; // Prioritize vertex over face
                     }
                 }
                 
@@ -297,14 +293,12 @@ void pickDemoWidget::performPick(int x, int y)
                     
                     // Check each edge of the face
                     for (int i = 0; i < 4; i++) {
-                        if (vertexIndices[i] == -1 || vertexIndices[(i + 1) % 4] == -1) break;
-                        
-                        int v1 = vertexIndices[i];
-                        int v2 = vertexIndices[(i + 1) % 4];
+                        int v1 = faceVertices[i];
+                        int v2 = faceVertices[(i + 1) % 4];
                         
                         // Get the two vertices of the edge
-                        SbVec3f p1 = m_coords->point[v1];
-                        SbVec3f p2 = m_coords->point[v2];
+                        SbVec3f p1 = m_cubeData.vertices[v1];
+                        SbVec3f p2 = m_cubeData.vertices[v2];
                         
                         // Calculate distance from intersection to edge
                         SbVec3f edge = p2 - p1;
@@ -319,14 +313,9 @@ void pickDemoWidget::performPick(int x, int y)
                         if (dist < edgeThreshold) {
                             // Find the edge index in the cube data
                             for (int j = 0; j < 12; j++) {
-                                int cubeV1 = -1, cubeV2 = -1;
-                                for (int k = 0; k < 8; k++) {
-                                    if (m_cubeData.vertices[k] == p1) cubeV1 = k;
-                                    if (m_cubeData.vertices[k] == p2) cubeV2 = k;
-                                }
-                                
-                                if ((m_cubeData.edges[j].v1 == cubeV1 && m_cubeData.edges[j].v2 == cubeV2) ||
-                                    (m_cubeData.edges[j].v1 == cubeV2 && m_cubeData.edges[j].v2 == cubeV1)) {
+                                const auto& edgeData = m_cubeData.edges[j];
+                                if ((edgeData.v1 == v1 && edgeData.v2 == v2) ||
+                                    (edgeData.v1 == v2 && edgeData.v2 == v1)) {
                                     m_highlightedEdge = j;
                                     m_highlightedFace = -1; // Prioritize edge over face
                                     break;
@@ -340,8 +329,12 @@ void pickDemoWidget::performPick(int x, int y)
         }
     }
     
-    // Update highlight
-    updateHighlight();
+    // Only update highlight if something changed
+    if (m_highlightedVertex != oldHighlightedVertex || 
+        m_highlightedEdge != oldHighlightedEdge || 
+        m_highlightedFace != oldHighlightedFace) {
+        updateHighlight();
+    }
 }
 
 void pickDemoWidget::updateHighlight()
@@ -360,8 +353,10 @@ void pickDemoWidget::updateHighlight()
         drawStyle->pointSize.setValue(15.0f);
         vertexSep->addChild(drawStyle);
         
-        // Add highlight material
-        vertexSep->addChild(m_vertexHighlightMat);
+        // Use preselection color
+        SoMaterial* material = new SoMaterial;
+        material->diffuseColor.setValue(m_highlightColor);
+        vertexSep->addChild(material);
         
         // Create point set for the highlighted vertex
         SoCoordinate3* vertexCoords = new SoCoordinate3;
@@ -383,8 +378,10 @@ void pickDemoWidget::updateHighlight()
         drawStyle->lineWidth.setValue(5.0f);
         edgeSep->addChild(drawStyle);
         
-        // Add highlight material
-        edgeSep->addChild(m_edgeHighlightMat);
+        // Use preselection color
+        SoMaterial* material = new SoMaterial;
+        material->diffuseColor.setValue(m_highlightColor);
+        edgeSep->addChild(material);
         
         // Create coordinate node for the edge vertices
         SoCoordinate3* edgeCoords = new SoCoordinate3;
@@ -404,8 +401,11 @@ void pickDemoWidget::updateHighlight()
     else if (m_highlightedFace != -1) {
         SoSeparator* faceSep = new SoSeparator;
         
-        // Add highlight material
-        faceSep->addChild(m_faceHighlightMat);
+        // Use preselection color with transparency
+        SoMaterial* material = new SoMaterial;
+        material->diffuseColor.setValue(m_highlightColor);
+        material->transparency.setValue(0.5f); // Semi-transparent for face highlight
+        faceSep->addChild(material);
         
         // Create coordinate node for the face vertices
         SoCoordinate3* faceCoords = new SoCoordinate3;
@@ -430,4 +430,7 @@ void pickDemoWidget::updateHighlight()
         
         m_highlightRoot->addChild(faceSep);
     }
+    
+    // Update the scene to reflect changes
+    m_highlightRoot->touch();
 }

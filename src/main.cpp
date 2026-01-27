@@ -15,6 +15,8 @@
 #include "CubeWindow.h"
 #include "TextOnCylinderForm.h"
 #include "pickDemoWidget.h"
+#include "TwoProjectionWidget.h"
+#include "ProjectionWgt.h"
 
 using namespace std;
 
@@ -44,9 +46,11 @@ int main(int argc, char** argv)
          //QuarterOcctViewer w;
          //CubeWindow w;
          //TextOnCylinderForm w;
-         pickDemoWidget w;
-         w.setWindowTitle("Pick Demo Widget");
-         w.resize(800, 600);
+         //pickDemoWidget w;
+         //TwoProjectionWidget w;
+         ProjectionWgt w;
+         w.setWindowTitle("OCCT Projection Demo");
+         w.resize(1200, 600);
          w.show();
     
          // Enter application event loop
