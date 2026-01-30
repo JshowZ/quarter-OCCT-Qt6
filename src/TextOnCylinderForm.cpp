@@ -112,6 +112,7 @@ using namespace SIM::Coin3D::Quarter;
 
 #include "ViewTool.h"
 #include "base.h"
+#include "TextShape.h"
 
 
 TextOnCylinderForm::TextOnCylinderForm(QWidget *parent)
@@ -334,10 +335,28 @@ TopoDS_Shape TextOnCylinderForm::createCylinder(double radius, double height)
 
 TopoDS_Shape TextOnCylinderForm::createText(const std::string& text, double height)
 {
-    // Create a simple rectangular shape as a placeholder for text
-    // Will implement proper text creation once we find the correct API
-    BRepPrimAPI_MakeBox boxMaker(height * 0.5, height, height * 0.1);
-    return boxMaker.Shape();
+    TopoDS_Shape resultShape;
+    double textWidth;
+    
+    // Call MakeTextShape to create the text shape
+    bool success = Base::TextShape::MakeTextShape(
+        text.c_str(),             // text
+        "Arial",                 // font (default to Arial)
+        static_cast<float>(height), // text height
+        static_cast<float>(height * 0.1), // thickness (10% of height)
+        false,                    // isBold
+        false,                    // isItalic
+        resultShape,              // resultShape
+        textWidth                 // textWidth
+    );
+    
+    if (success && !resultShape.IsNull()) {
+        return resultShape;
+    } else {
+        // Fallback to placeholder box if text creation fails
+        BRepPrimAPI_MakeBox boxMaker(height * 0.5, height, height * 0.1);
+        return boxMaker.Shape();
+    }
 }
 
 TopoDS_Shape TextOnCylinderForm::projectTextOntoCylinder(const TopoDS_Shape& cylinder, const TopoDS_Shape& text)

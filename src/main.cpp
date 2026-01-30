@@ -17,6 +17,7 @@
 #include "pickDemoWidget.h"
 #include "TwoProjectionWidget.h"
 #include "ProjectionWgt.h"
+#include "TextDemoWidget.h"
 
 using namespace std;
 
@@ -48,8 +49,9 @@ int main(int argc, char** argv)
          //TextOnCylinderForm w;
          //pickDemoWidget w;
          //TwoProjectionWidget w;
-         ProjectionWgt w;
-         w.setWindowTitle("OCCT Projection Demo");
+         //ProjectionWgt w;
+         TextDemoWidget w;
+         w.setWindowTitle("OCCT Text Demo");
          w.resize(1200, 600);
          w.show();
     

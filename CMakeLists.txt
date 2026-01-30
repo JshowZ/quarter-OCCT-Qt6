@@ -74,7 +74,7 @@ add_executable(${PROJECT_NAME}
 # Add TestWindow executable
 add_executable(TestWindowMain
     src/TestWindow.cpp
-    src/TestWindow.h
+    include/TestWindow.h
     src/TestWindowMain.cpp
 )
 
