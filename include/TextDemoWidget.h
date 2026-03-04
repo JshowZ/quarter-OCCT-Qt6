@@ -9,6 +9,8 @@
 #include <QWidget>
 #include <QVBoxLayout>
 
+#include <Inventor/SbColor.h>
+
 namespace SIM {
     namespace Coin3D {
         namespace Quarter {
@@ -23,6 +25,7 @@ class SoPerspectiveCamera;
 class SoText3;
 class SoFont;
 class SoNode;
+class SbColor;
 
 // OCCT forward declarations
 class TopoDS_Shape;
@@ -39,6 +42,7 @@ private slots:
     void onCreateText();
     void onClear();
     void onZoomAll();
+    void onTextColorClicked();
 
 private:
     // UI components
@@ -48,9 +52,13 @@ private:
     QLineEdit* m_textInput;
     QComboBox* m_fontComboBox;
     QDoubleSpinBox* m_textHeight;
+    QPushButton* m_textColorBtn;
     QPushButton* m_createTextBtn;
     QPushButton* m_clearBtn;
     QPushButton* m_zoomAllBtn;
+    
+    // Color
+    QColor m_textColor;
     
     // Coin3D components
     SIM::Coin3D::Quarter::QuarterWidget* m_quarterWidget;
@@ -61,7 +69,7 @@ private:
     // Private methods
     void setupUI();
     void createText(const std::string& text, double height, const std::string& font);
-    bool displayShape(const TopoDS_Shape& shape, bool clearExisting = true);
+    bool displayShape(const TopoDS_Shape& shape, bool clearExisting = true, SbColor color = SbColor(0.8, 0.8, 0.8));
     void clearScene();
     void zoomAll();
 };

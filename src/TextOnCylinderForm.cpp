@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QDoubleSpinBox>
+#include <QColorDialog>
 
 // Coin3D and Quarter headers
 #include <Inventor/nodes/SoSeparator.h>
@@ -41,8 +42,8 @@
 #include <Quarter/QuarterWidget.h>
 #include <Quarter/eventhandlers/DragDropHandler.h>
 
-// Use Quarter namespace for convenience
-using namespace SIM::Coin3D::Quarter;
+
+
 
 // OCCT headers
 #include <Standard.hxx>
@@ -114,6 +115,9 @@ using namespace SIM::Coin3D::Quarter;
 #include "base.h"
 #include "TextShape.h"
 
+// Use Quarter namespace for convenience
+using namespace SIM::Coin3D::Quarter;
+
 
 TextOnCylinderForm::TextOnCylinderForm(QWidget *parent)
     : QMainWindow(parent),
@@ -129,12 +133,14 @@ TextOnCylinderForm::TextOnCylinderForm(QWidget *parent)
       m_cylinderHeight(nullptr),
       m_textHeight(nullptr),
       m_engravingDepth(nullptr),
+      m_textColorBtn(nullptr),
       m_createCylinderBtn(nullptr),
       m_createTextBtn(nullptr),
       m_projectTextBtn(nullptr),
       m_engraveTextBtn(nullptr),
       m_clearBtn(nullptr),
       m_zoomAllBtn(nullptr),
+      m_textColor(Qt::blue),
       m_cylinderCreated(false),
       m_textCreated(false)
 {
@@ -211,6 +217,13 @@ void TextOnCylinderForm::setupUI()
     m_engravingDepth->setValue(0.5);
     m_engravingDepth->setSingleStep(0.1);
     textParamLayout->addWidget(m_engravingDepth);
+    
+    textParamLayout->addWidget(new QLabel("Text Color:", m_controlPanel));
+    m_textColorBtn = new QPushButton(m_controlPanel);
+    m_textColorBtn->setFixedSize(50, 30);
+    m_textColorBtn->setStyleSheet(QString("background-color: rgb(%1, %2, %3);").arg(m_textColor.red()).arg(m_textColor.green()).arg(m_textColor.blue()));
+    connect(m_textColorBtn, &QPushButton::clicked, this, &TextOnCylinderForm::onTextColorClicked);
+    textParamLayout->addWidget(m_textColorBtn);
     controlLayout->addLayout(textParamLayout);
     
     // Buttons
@@ -485,9 +498,10 @@ TopoDS_Shape TextOnCylinderForm::engraveTextOntoCylinder(const TopoDS_Shape& cyl
     return cutter.Shape();
 }
 
-SoNode* TextOnCylinderForm::convertShapeRecursive(TopoDS_Shape shape, double deviation, double angularDeflection)
+SoNode* TextOnCylinderForm::convertShapeRecursive(TopoDS_Shape shape, double deviation, double angularDeflection, SbColor color)
 {
-    try {
+    try
+    {
         SoSeparator* shapeSep = new SoSeparator;
         SoCoordinate3* coords = new SoCoordinate3;
         coords->ref();
@@ -810,7 +824,7 @@ SoNode* TextOnCylinderForm::convertShapeRecursive(TopoDS_Shape shape, double dev
         lineSet->coordIndex.finishEditing();
 
         SoMaterial* material = new SoMaterial;
-        material->diffuseColor.setValue(0.8, 0.8, 0.8);
+        material->diffuseColor.setValue(color);
         material->specularColor.setValue(1.0, 1.0, 1.0);
         material->shininess.setValue(0.5);
 
@@ -1091,7 +1105,7 @@ SoNode* TextOnCylinderForm::convertShapeToCoin3D(const TopoDS_Shape& shape)
     }
 }
 
-bool TextOnCylinderForm::displayShape(const TopoDS_Shape& shape, bool clearExisting)
+bool TextOnCylinderForm::displayShape(const TopoDS_Shape& shape, bool clearExisting, SbColor color)
 {
     // Clear existing model if requested
     if (clearExisting) {
@@ -1099,7 +1113,7 @@ bool TextOnCylinderForm::displayShape(const TopoDS_Shape& shape, bool clearExist
     }
     
     // Convert OCCT shape to Coin3D node
-    SoNode* modelNode = convertShapeRecursive(shape, 0.001, 0.05);
+    SoNode* modelNode = convertShapeRecursive(shape, 0.001, 0.05, color);
     if (modelNode) {
         m_modelRoot->addChild(modelNode);
         
@@ -1152,7 +1166,9 @@ void TextOnCylinderForm::onCreateText()
     try {
         m_text = createText(text, height);
         m_textCreated = true;
-        displayShape(m_text);
+        // Convert QColor to SbColor and display text with selected color
+        SbColor textColor(m_textColor.redF(), m_textColor.greenF(), m_textColor.blueF());
+        displayShape(m_text, false, textColor);
     } catch (const Standard_Failure& e) {
         QMessageBox::critical(this, "Error", QString("Failed to create text: %1").arg(e.GetMessageString()));
     } catch (...) {
@@ -1216,4 +1232,13 @@ void TextOnCylinderForm::onClear()
 void TextOnCylinderForm::onZoomAll()
 {
     zoomAll();
+}
+
+void TextOnCylinderForm::onTextColorClicked()
+{
+    QColor color = QColorDialog::getColor(m_textColor, this, "Select Text Color");
+    if (color.isValid()) {
+        m_textColor = color;
+        m_textColorBtn->setStyleSheet(QString("background-color: rgb(%1, %2, %3);").arg(color.red()).arg(color.green()).arg(color.blue()));
+    }
 }

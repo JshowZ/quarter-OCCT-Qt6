@@ -6,12 +6,13 @@
 #include <string>
 
 #include<TopoDS_Shape.hxx>
-
+#include <Inventor/SbColor.h>
 
 // Forward declarations for Coin3D and Quarter
 class SoNode;
 class SoSeparator;
 class SoPerspectiveCamera;
+
 namespace SIM {
 namespace Coin3D {
 namespace Quarter {
@@ -111,17 +112,19 @@ protected:
      * @param shape The OCCT shape to convert
      * @param deviation Deviation for mesh generation
      * @param angularDeflection Angular deflection for mesh generation
+     * @param color Color to use for the shape material
      * @return Converted Coin3D node, or nullptr if conversion failed
      */
-    SoNode* convertShapeRecursive(TopoDS_Shape shape, double deviation, double angularDeflection);
+    SoNode* convertShapeRecursive(TopoDS_Shape shape, double deviation, double angularDeflection, SbColor color = SbColor(0.8, 0.8, 0.8));
     
     /**
      * @brief Display shape in the viewer
      * @param shape The OCCT shape to display
      * @param clearExisting Whether to clear existing models (default: true)
+     * @param color Color to use for the shape (default: gray)
      * @return true if successful, false otherwise
      */
-    bool displayShape(const TopoDS_Shape& shape, bool clearExisting = false);
+    bool displayShape(const TopoDS_Shape& shape, bool clearExisting = false, SbColor color = SbColor(0.8, 0.8, 0.8));
 
 private slots:
     /**
@@ -153,6 +156,11 @@ private slots:
      * @brief Slot for zoom all button
      */
     void onZoomAll();
+    
+    /**
+     * @brief Slot for text color button
+     */
+    void onTextColorClicked();
 
 private:
     QWidget* m_centralWidget;            // Central widget
@@ -169,12 +177,14 @@ private:
     QDoubleSpinBox* m_cylinderHeight;     // Cylinder height
     QDoubleSpinBox* m_textHeight;         // Text height
     QDoubleSpinBox* m_engravingDepth;     // Engraving depth
+    QPushButton* m_textColorBtn;          // Text color button
     QPushButton* m_createCylinderBtn;     // Create cylinder button
     QPushButton* m_createTextBtn;         // Create text button
     QPushButton* m_projectTextBtn;        // Project text button
     QPushButton* m_engraveTextBtn;        // Engrave text button
     QPushButton* m_clearBtn;              // Clear button
     QPushButton* m_zoomAllBtn;            // Zoom all button
+    QColor m_textColor;                   // Text color
     
     // Shapes
     TopoDS_Shape m_cylinder;              // Cylinder shape

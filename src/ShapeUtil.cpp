@@ -65,7 +65,7 @@ Standard_Real getDeflection(const TopoDS_Shape& shape, double deviation)
 }
 
 // ShapeUtil implementation
-SoNode* ShapeUtil::convertShapeRecursive(TopoDS_Shape shape, double deviation, double angularDeflection)
+SoNode* ShapeUtil::convertShapeRecursive(TopoDS_Shape shape, double deviation, double angularDeflection, SbColor color)
 {
     try
     {
@@ -420,7 +420,7 @@ SoNode* ShapeUtil::convertShapeRecursive(TopoDS_Shape shape, double deviation, d
         lineSet->coordIndex.finishEditing();
 
         SoMaterial* material = new SoMaterial;
-        material->diffuseColor.setValue(0.8, 0.8, 0.8);
+        material->diffuseColor.setValue(color);
         material->specularColor.setValue(1.0, 1.0, 1.0);
         material->shininess.setValue(0.5);
 

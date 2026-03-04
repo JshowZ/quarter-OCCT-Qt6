@@ -10,6 +10,7 @@
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QLabel>
+#include <QColorDialog>
 
 // Coin3D and Quarter headers
 #include <Inventor/nodes/SoSeparator.h>
@@ -108,9 +109,11 @@ TextDemoWidget::TextDemoWidget(QWidget *parent)
       m_textInput(nullptr),
       m_fontComboBox(nullptr),
       m_textHeight(nullptr),
+      m_textColorBtn(nullptr),
       m_createTextBtn(nullptr),
       m_clearBtn(nullptr),
-      m_zoomAllBtn(nullptr)
+      m_zoomAllBtn(nullptr),
+      m_textColor(Qt::blue)
 {
     setupUI();
 }
@@ -184,6 +187,13 @@ void TextDemoWidget::setupUI()
     m_textHeight->setValue(2.0);
     m_textHeight->setSingleStep(0.1);
     textParamLayout->addWidget(m_textHeight);
+    
+    textParamLayout->addWidget(new QLabel("Text Color:", m_controlPanel));
+    m_textColorBtn = new QPushButton(m_controlPanel);
+    m_textColorBtn->setFixedSize(50, 30);
+    m_textColorBtn->setStyleSheet(QString("background-color: rgb(%1, %2, %3);").arg(m_textColor.red()).arg(m_textColor.green()).arg(m_textColor.blue()));
+    connect(m_textColorBtn, &QPushButton::clicked, this, &TextDemoWidget::onTextColorClicked);
+    textParamLayout->addWidget(m_textColorBtn);
     controlLayout->addLayout(textParamLayout);
     
     // Buttons
@@ -308,14 +318,17 @@ void TextDemoWidget::createText(const std::string& text, double height, const st
             textWidth                 // textWidth
         );
         
+        // Convert QColor to SbColor
+        SbColor textColor(m_textColor.redF(), m_textColor.greenF(), m_textColor.blueF());
+        
         if (success && !resultShape.IsNull()) {
-            displayShape(resultShape);
+            displayShape(resultShape, true, textColor);
         } else {
             QMessageBox::warning(this, "Warning", "Failed to create text shape, using fallback");
             
             // Fallback to placeholder box if text creation fails
             BRepPrimAPI_MakeBox boxMaker(height * 0.5, height, height * 0.1);
-            displayShape(boxMaker.Shape());
+            displayShape(boxMaker.Shape(), true, textColor);
         }
     } catch (const Standard_Failure& e) {
         QMessageBox::critical(this, "OCCT Exception", e.GetMessageString());
@@ -324,7 +337,7 @@ void TextDemoWidget::createText(const std::string& text, double height, const st
     }
 }
 
-bool TextDemoWidget::displayShape(const TopoDS_Shape& shape, bool clearExisting)
+bool TextDemoWidget::displayShape(const TopoDS_Shape& shape, bool clearExisting, SbColor color)
 {
     // Clear existing model if requested
     if (clearExisting) {
@@ -332,7 +345,7 @@ bool TextDemoWidget::displayShape(const TopoDS_Shape& shape, bool clearExisting)
     }
     
     // Convert OCCT shape to Coin3D node
-    SoNode* modelNode = ShapeUtil::convertShapeRecursive(shape);
+    SoNode* modelNode = ShapeUtil::convertShapeRecursive(shape, 0.01, 0.5, color);
     if (modelNode) {
         m_modelRoot->addChild(modelNode);
         
@@ -384,4 +397,13 @@ void TextDemoWidget::onClear()
 void TextDemoWidget::onZoomAll()
 {
     zoomAll();
+}
+
+void TextDemoWidget::onTextColorClicked()
+{
+    QColor color = QColorDialog::getColor(m_textColor, this, "Select Text Color");
+    if (color.isValid()) {
+        m_textColor = color;
+        m_textColorBtn->setStyleSheet(QString("background-color: rgb(%1, %2, %3);").arg(color.red()).arg(color.green()).arg(color.blue()));
+    }
 }
