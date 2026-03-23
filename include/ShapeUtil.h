@@ -14,6 +14,8 @@ class ShapeUtil
 public:
     // Convert OCCT shape to Inventor node
     static SoNode* convertShapeRecursive(TopoDS_Shape shape, double deviation = 0.01, double angularDeflection = 0.5, SbColor color = SbColor(0.8, 0.8, 0.8));
+    // Convert single OCCT shape to Inventor node
+    static SoNode* convertSingleShape(TopoDS_Shape shape, double deviation = 0.01, double angularDeflection = 0.5, SbColor color = SbColor(0.8, 0.8, 0.8));
 };
 
 #endif // SHAPEUTIL_H

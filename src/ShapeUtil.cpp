@@ -69,6 +69,44 @@ SoNode* ShapeUtil::convertShapeRecursive(TopoDS_Shape shape, double deviation, d
 {
     try
     {
+        SoSeparator* rootSep = new SoSeparator;
+
+        if (ViewTool::isShapeEmpty(shape)) {
+            return rootSep;
+        }
+
+        // Check if the shape is a compound (which it will be for multi-character text)
+        if (shape.ShapeType() == TopAbs_COMPOUND) {
+            // Iterate through each child shape (each character)
+            TopExp_Explorer exp;
+            for (exp.Init(shape, TopAbs_SOLID); exp.More(); exp.Next()) {
+                const TopoDS_Shape& childShape = exp.Current();
+                SoNode* childNode = convertSingleShape(childShape, deviation, angularDeflection, color);
+                if (childNode) {
+                    rootSep->addChild(childNode);
+                }
+            }
+            return rootSep;
+        } else {
+            // For single shapes, use the original conversion
+            return convertSingleShape(shape, deviation, angularDeflection, color);
+        }
+
+    }
+    catch (const Standard_Failure& e) {
+        //spdlog::error(e.GetMessageString());
+        return nullptr;
+    }
+    catch (...) {
+        //spdlog::error("Unknown error during shape conversion");
+        return nullptr;
+    }
+}
+
+SoNode* ShapeUtil::convertSingleShape(TopoDS_Shape shape, double deviation, double angularDeflection, SbColor color)
+{
+    try
+    {
         SoSeparator* shapeSep = new SoSeparator;
         SoCoordinate3* coords = new SoCoordinate3;
         coords->ref();
@@ -309,7 +347,7 @@ SoNode* ShapeUtil::convertShapeRecursive(TopoDS_Shape shape, double deviation, d
                 if (edgeIdxSet.find(edgeIndex) != edgeIdxSet.end()) {
 
                     // this holds the indices of the edge's triangulation to the current polygon
-                    Handle(Poly_PolygonOnTriangulation) aPoly =
+                    Handle(Poly_PolygonOnTriangulation) aPoly = 
                         BRep_Tool::PolygonOnTriangulation(curEdge, mesh, aLoc);
                     if (aPoly.IsNull()) {
                         continue;  // polygon does not exist

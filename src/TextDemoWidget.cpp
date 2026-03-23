@@ -95,6 +95,8 @@
 #include "TextShape.h"
 #include "ShapeUtil.h"
 
+#include <QMouseEvent>
+
 using namespace SIM::Coin3D::Quarter;
 
 TextDemoWidget::TextDemoWidget(QWidget *parent)
@@ -293,6 +295,9 @@ void TextDemoWidget::setupUI()
     // Set default background color to white
     m_quarterWidget->setBackgroundColor(QColor::fromRgbF(1.0, 1.0, 1.0));
 
+    // Install event filter to capture mouse events
+    m_quarterWidget->installEventFilter(this);
+
     // Set window properties
     setWindowTitle("Text Demo Widget");
     resize(800, 600);
@@ -406,4 +411,46 @@ void TextDemoWidget::onTextColorClicked()
         m_textColor = color;
         m_textColorBtn->setStyleSheet(QString("background-color: rgb(%1, %2, %3);").arg(color.red()).arg(color.green()).arg(color.blue()));
     }
+}
+
+bool TextDemoWidget::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_quarterWidget && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            // Get mouse position relative to QuarterWidget
+            QPoint pos = mouseEvent->pos();
+            
+            // Create ray pick action
+            SbViewportRegion viewport(m_quarterWidget->width(), m_quarterWidget->height());
+            SoRayPickAction pickAction(viewport);
+            
+            // Set pick point (convert Qt coordinates to Coin3D coordinates)
+            pickAction.setPoint(SbVec2s(pos.x(), m_quarterWidget->height() - pos.y()));
+            
+            // Apply pick action to the scene graph
+            pickAction.apply(m_root);
+            
+            // Check if anything was picked
+            const SoPickedPoint *pickedPoint = pickAction.getPickedPoint();
+            if (pickedPoint) {
+                // Get the path to the picked object
+                SoPath *path = pickedPoint->getPath();
+                if (path) {
+                    // Print information about the picked object
+                    //qDebug() << "Picked path:" << path->getFullName().getString();
+                    
+                    // Get the picked point coordinates
+                    SbVec3f intersection = pickedPoint->getPoint();
+                    qDebug() << "Intersection point:" << intersection[0] << intersection[1] << intersection[2];
+                    
+                    // Here you can add logic to identify which character was picked
+                    // For now, we'll just show a message box
+                    QMessageBox::information(this, "Text Picked", 
+                        QString("Picked at position: (%1, %2, %3)").arg(intersection[0]).arg(intersection[1]).arg(intersection[2]));
+                }
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
 }

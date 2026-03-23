@@ -344,7 +344,6 @@ namespace Base
         if (aFontMgr->GetAvailableFonts().IsEmpty())
             aFontMgr->InitFontDataBase();
 
-        //TopoDS_Shape aTextBase;
         Font_FontAspect aFontAspect = Font_FontAspect_UNDEFINED;
         if (isBold && isItalic)
             aFontAspect = Font_FontAspect_BoldItalic;
@@ -355,24 +354,71 @@ namespace Base
         else
             aFontAspect = Font_FontAspect_Regular;
 
-        TopoDS_Shape aBaseShape;
-        if (TextToBRep(text, font, textHeight, aFontAspect, aBaseShape, dTextWidth))
-        {
-            if (Prism(aBaseShape, thickness, resultShape))
-            {
-				return true;
+        // Create a compound shape to hold individual characters
+        TopoDS_Compound compound;
+        BRep_Builder builder;
+        builder.MakeCompound(compound);
+
+        double totalWidth = 0.0;
+        Font_BRepFont aFont;
+        TCollection_AsciiString aFontName(font);
+        Standard_Real aTextHeight = textHeight;
+        Standard_Boolean anIsCompositeCurve = Standard_False;
+        Font_StrictLevel aStrictLevel = Font_StrictLevel_Any;
+
+        aFont.SetCompositeCurveMode(anIsCompositeCurve);
+        if (!aFont.FindAndInit(aFontName.ToCString(), aFontAspect, aTextHeight, aStrictLevel))
+            return false;
+
+        gp_Ax3 aPenAx3(gp::XOY());
+        gp_Dir aNormal(0.0, 0.0, 1.0);
+        gp_Dir aDirection(1.0, 0.0, 0.0);
+        gp_Pnt aPenLoc;
+
+        Graphic3d_HorizontalTextAlignment aHJustification = Graphic3d_HTA_LEFT;
+        Graphic3d_VerticalTextAlignment aVJustification = Graphic3d_VTA_BOTTOM;
+
+        // Process each character individually
+        NCollection_String coll_str = text;
+        for (NCollection_Utf8Iter anIter = coll_str.Iterator(); *anIter != 0;) {
+            const Standard_Utf32Char aChar = *anIter;
+            ++anIter;
+
+            // Create a string with just this character
+            char charStr[2] = {static_cast<char>(aChar), '\0'};
+            
+            // Create formatter for this character
+            Handle(Font_TextFormatter) aFormatter = new Font_TextFormatter();
+            aFormatter->Reset();
+            aFormatter->SetupAlignment(aHJustification, aVJustification);
+            aFormatter->Append(charStr, *aFont.FTFont());
+            aFormatter->Format();
+
+            // Create shape for this character
+            Font_BRepTextBuilder aBuilder;
+            TopoDS_Shape charShape;
+            charShape = aBuilder.Perform(aFont, aFormatter, aPenAx3);
+
+            if (!charShape.IsNull()) {
+                // Extrude the character
+                TopoDS_Shape extrudedChar;
+                if (Prism(charShape, thickness, extrudedChar)) {
+                    // Add to compound
+                    builder.Add(compound, extrudedChar);
+                }
             }
+
+            // Move pen position for next character
+            const Standard_Utf32Char aCharNext = *anIter;
+            double width = aFont.AdvanceX(aChar, aCharNext);
+            totalWidth += width;
+            aPenLoc.ChangeCoord().SetX(aPenLoc.X() + width);
+            aPenAx3.SetLocation(aPenLoc);
         }
-        return false;
 
-        //if (!TextToBRep(text, font, textHeight, aFontAspect, aTextBase, dTextWidth))
-        //    return;
-
-        //TopoDS_Shape aTextShape;
-        //if (!Prism(aTextBase, thickness, aTextShape))
-        //    return;
-
-        //MakeMesh(aTextShape, text_result.text_mesh);
+        dTextWidth = totalWidth;
+        resultShape = compound;
+        return !resultShape.IsNull();
     }
 
 }; 

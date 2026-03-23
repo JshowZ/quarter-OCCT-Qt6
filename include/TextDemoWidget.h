@@ -37,6 +37,7 @@ class TextDemoWidget : public QMainWindow
 public:
     TextDemoWidget(QWidget *parent = nullptr);
     ~TextDemoWidget();
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 private slots:
     void onCreateText();
